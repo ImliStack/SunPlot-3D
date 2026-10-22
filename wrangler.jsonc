@@ -1,0 +1,10 @@
+// Cloudflare Workers static-assets deploy: serves the Vite build in dist/ (no server code).
+// With this file present, `npx wrangler deploy` uses it instead of auto-configuring the project.
+{
+  "name": "sunplot-3d",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

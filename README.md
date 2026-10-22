@@ -32,6 +32,14 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 
 <br />
 
+## ✦ Demo
+
+<div align="center">
+<img src="docs/demo.gif" alt="SunPlot demo: a day of sun on a house, airport, carport, click-to-install rows, snow, then a site survey in Jaipur opened in the 3D studio" width="100%" />
+<br />
+<sub>38 seconds: studio → airport → carport → click to install → snow → site survey → 3D studio · <a href="docs/demo.mp4">full-quality MP4</a></sub>
+</div>
+
 ## ✦ At a glance
 
 <table>
@@ -84,8 +92,9 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   HUD compass. Ambient occlusion and reflections, with a quality switch for slower devices.
 
 **Survey (India)**
-- **Site survey without a visit** — find the house on satellite imagery, click its outline (Overture
-  Maps buildings, OpenStreetMap as backup) or draw it, mark the stair room, water tank and street side.
+- **Site survey without a visit** — type-ahead address search (Photon / OpenStreetMap), use-my-location
+  with a blue dot, a draggable pin; then click the building outline on satellite imagery (Overture Maps,
+  OpenStreetMap as backup) or draw it, and mark the stair room, water tank and street side.
 - **Bill → system** — monthly units (or ₹ bill), sanctioned load and state give the size, number of
   DCR modules, PM Surya Ghar subsidy (₹78,000 cap, special-category states), cost after subsidy and payback.
 - **Where on the roof** — front / back / left / right / centre of the terrace ranked by shade from
@@ -98,6 +107,19 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 - **Real installations** — solar plants mapped in OpenStreetMap near your site, and landmark
   projects (Bhadla, Pavagada, Cochin airport, Noor Abu Dhabi, Benban…) you can load.
 - **Shareable links**, PNG export, light & dark themes, fold-away side panels, phone layout.
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/survey-search.jpg" alt="Site survey: address autocomplete with a red pin" /></td>
+    <td width="33%"><img src="docs/screenshots/survey.jpg" alt="Site survey: roof picked in Jaipur with stair room, tank and suggested modules" /></td>
+    <td width="33%"><img src="docs/screenshots/survey-studio.jpg" alt="Surveyed terrace opened in the 3D studio with neighbours" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Find the house</b> — type-ahead + pin</sub></td>
+    <td align="center"><sub><b>Survey</b> — 3.5 kWp, ₹78,000 subsidy</sub></td>
+    <td align="center"><sub><b>Opened in 3D</b> — neighbours, tank, elevated racks</sub></td>
+  </tr>
+</table>
 
 <table>
   <tr>
@@ -259,10 +281,13 @@ SunPlot-3D/
 ├── index.html                  App shell, fonts, meta tags
 ├── package.json
 ├── vite.config.js
+├── wrangler.jsonc              Cloudflare static-assets deploy
+├── scripts/                    README screenshots + demo recording
 ├── PLAN.md                     Research notes, models and milestones
 ├── docs/
 │   ├── logo.svg
 │   ├── sample-proposal.pdf     Example client proposal
+│   ├── demo.gif · demo.mp4     README demo
 │   └── screenshots/            Images used in this README
 └── src/
     ├── main.jsx                React entry
@@ -324,8 +349,10 @@ The **HQ** switch turns ambient occlusion off for slower devices.
 
 <img src="docs/screenshots/mobile.jpg" alt="Phone layout" width="240" align="right" />
 
-`npm run build` emits a fully static site in `dist/` — deploy it to **Vercel, Netlify, Cloudflare
-Pages or GitHub Pages** with no server and no environment variables. NASA POWER, OpenStreetMap
+`npm run build` emits a fully static site in `dist/` — deploy it to **Cloudflare (Pages or Workers),
+Vercel, Netlify or GitHub Pages** with no server and no environment variables. On Cloudflare
+Workers Builds, [`wrangler.jsonc`](wrangler.jsonc) serves `dist/` as static assets
+(build: `npm run build`, deploy: `npx wrangler deploy`). NASA POWER, OpenStreetMap
 (Overpass) and Open-Meteo are called straight from the browser; none needs a key.
 
 <br clear="right" />
@@ -377,6 +404,21 @@ permits and grid connection still need a qualified installer.
 - [ ] Battery sizing and self-consumption from a load profile
 
 Research notes and earlier milestones are in [PLAN.md](PLAN.md).
+
+## ✦ Screenshots & demo
+
+Every image and the demo in this README are generated from the running app:
+
+```bash
+npm run dev                    # keep running on :5181
+scripts/readme-shots.sh        # refreshes docs/screenshots/*.jpg
+scripts/readme-video.sh        # records docs/demo.mp4 + docs/demo.gif (needs ffmpeg)
+```
+
+Both use the gstack `browse` CLI in headed mode (WebGL needs a real GPU). They are re-run before
+each push that adds features, so the README always shows the current app. For an inline video
+player instead of the GIF, drag `docs/demo.mp4` into the README in GitHub's web editor — GitHub
+hosts it and plays it in place (MP4 / MOV / WebM).
 
 ## ✦ Contributing
 
