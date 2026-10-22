@@ -259,6 +259,88 @@ select, .text {
 .arrays small { color: var(--muted); }
 .fine { font-size: 11.5px; color: var(--muted); margin: 16px 2px 0; }
 
+/* ───── Site survey ───── */
+.app.is-survey { grid-template-columns: 340px minmax(0, 1fr) 380px; }
+.app.is-survey.no-left { grid-template-columns: 0 minmax(0, 1fr) 380px; }
+.app.is-survey.no-right { grid-template-columns: 340px minmax(0, 1fr) 0; }
+.app.is-survey.no-left.no-right { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.mode-switch { margin: 12px 0 4px; }
+.mode-switch button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.survey-map { position: absolute !important; inset: 0; } /* MapLibre sets position: relative */
+.survey-step {
+  margin-top: 12px; padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--paper); display: flex; flex-direction: column; gap: 10px;
+}
+.survey-step h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; font-weight: 500; }
+.step-title { flex: 1; }
+.step-sum { font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.step-body { display: flex; flex-direction: column; gap: 10px; }
+.survey-step .field-hint { margin: 0; }
+.step-n {
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; flex: none;
+  background: var(--soft); color: var(--ink-2); font-size: 12px; font-weight: 600;
+}
+.survey-step.is-done .step-n { background: #3f9a5c; color: #fff; }
+.chips .chip { display: inline-flex; align-items: center; gap: 5px; }
+.seg button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.seg.compact { flex: 1; max-width: 170px; }
+.seg.compact button { padding: 4px; }
+.row-inline { display: flex; align-items: center; gap: 10px; }
+.row-inline .field-label { flex: none; }
+.stepper { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 9px; background: var(--soft); }
+.stepper button { width: 26px; height: 24px; border-radius: 7px; font-size: 15px; color: var(--ink-2); }
+.stepper button:hover { background: var(--paper); }
+.stepper b { min-width: 22px; text-align: center; font-weight: 500; font-variant-numeric: tabular-nums; }
+.link-btn.small { margin: 0 0 0 auto; font-size: 12px; }
+.addr-chip { display: flex; gap: 6px; align-items: flex-start; margin: 0; padding: 7px 9px; border-radius: 10px; background: var(--soft); font-size: 12.5px; }
+.addr-chip .icon { color: #e5484d; margin-top: 1px; }
+.mark-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mark-tile {
+  position: relative; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 12px;
+  border: 1px dashed var(--line-strong); text-align: left; transition: background .15s, border-color .15s;
+}
+.mark-tile:hover { background: var(--hover); }
+.mark-tile span { display: flex; flex-direction: column; min-width: 0; }
+.mark-tile b { font-weight: 500; font-size: 12.5px; }
+.mark-tile small { font-size: 11px; color: var(--muted); }
+.mark-tile.is-set { border-style: solid; border-color: #3f9a5c; }
+.mark-tile.is-set .icon { color: #3f9a5c; }
+.mark-tile.is-on { border-style: solid; border-color: var(--sun); background: var(--sun-soft); }
+.mark-tile .x { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: var(--muted); }
+.mark-tile .x:hover { background: var(--soft); color: var(--ink); }
+.seg.four { grid-template-columns: repeat(4, 1fr); }
+.pair.two { grid-template-columns: 1fr 1fr; }
+.survey-hint { position: absolute; top: 14px; pointer-events: none; left: 50%; transform: translateX(-50%); z-index: 3; }
+.map-mark {
+  padding: 3px 8px; border-radius: 999px; font: 600 11px var(--sans); color: #fff; cursor: grab;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4); border: 1.5px solid #fff; white-space: nowrap;
+}
+.map-mark.is-mumty { background: #8a5a3c; }
+.map-mark.is-tank { background: #1c1f24; }
+.hit-line { display: flex; align-items: center; gap: 6px; }
+.hit-line span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hit-line em { font-style: normal; font-size: 10.5px; color: var(--muted); padding: 1px 6px; border-radius: 999px; background: var(--soft); }
+.hit-line .icon { color: #e5484d; }
+.results-list li small { padding-left: 20px; }
+.hit-credit { font-size: 10.5px; color: var(--muted); cursor: default !important; padding: 4px 10px !important; }
+.field-hint.warn { color: var(--warn); }
+.advice { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.arrays tr.is-best td { font-weight: 500; color: #3f9a5c; }
+.sunbar-mini { display: block; width: 60px; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; }
+.sunbar-mini i { display: block; height: 100%; background: var(--sun); }
+.survey-results .primary-btn { width: 100%; margin-top: 16px; }
+.maplibregl-ctrl-attrib { font-size: 10px; }
+@media (max-width: 1100px) {
+  .app.is-survey { grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .app.is-survey .survey-results { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .app.is-survey { display: flex; flex-direction: column; }
+  .app.is-survey .survey-stage { order: 1; height: 60vh; flex: none; }
+  .app.is-survey .survey-steps { order: 0; }
+  .app.is-survey .survey-results { order: 2; }
+}
+
 /* ───── Collapsible side panels ───── */
 .app.no-left { grid-template-columns: 0 minmax(0, 1fr) 360px; }
 .app.no-right { grid-template-columns: 300px minmax(0, 1fr) 0; }

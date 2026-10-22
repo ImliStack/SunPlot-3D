@@ -6,6 +6,7 @@
 
 import { PANELS, SHOWS, BAY } from './presets.js'
 import { winterNoonAltitude } from './solar.js'
+import { area, bbox, inside, edgeDistance } from './survey/geo.js'
 
 const RAD = Math.PI / 180
 export const GAP = 0.02 // m between modules (clamp width)
@@ -241,6 +242,52 @@ function zoneOutline(pl, half, vFrom, vTo) {
 
 const flatZone = (L, W, e, y) => [[-L / 2 + e, y, -W / 2 + e], [L / 2 - e, y, -W / 2 + e], [L / 2 - e, y, W / 2 - e], [-L / 2 + e, y, W / 2 - e], [-L / 2 + e, y, -W / 2 + e]]
 
+/** A rectangle outline, stair room and tank for a terrace that has not been surveyed yet. */
+export function defaultTerrace(L = 14, W = 10) {
+  return {
+    outline: [[-L / 2, -W / 2], [L / 2, -W / 2], [L / 2, W / 2], [-L / 2, W / 2]],
+    mumty: [-L / 2 + 1.8, -W / 2 + 1.6],
+    tank: [-L / 2 + 4.2, -W / 2 + 1],
+    neighbours: [],
+    front: 'S',
+  }
+}
+
+/**
+ * Indian flat terrace of any outline: racks (usually elevated so the terrace stays usable) packed
+ * inside the outline minus the edge setback, clear of the stair room (mumty) and water tank.
+ */
+function terrace(p, size, cap, out) {
+  const t = p.terrace ?? defaultTerrace(p.length, p.width)
+  const ring = t.outline
+  const bb = bbox(ring)
+  const H = p.floors * STOREY + 0.3
+  const obstacles = []
+  if (t.mumty) obstacles.push({ kind: 'housing', x: t.mumty[0], z: t.mumty[1], w: 2.6, d: 2.2, h: 2.6, y0: H })
+  if (t.tank) obstacles.push({ kind: 'tank', x: t.tank[0], z: t.tank[1], w: 1.3, d: 1.3, h: 2.2, y0: H })
+  out.obstacles = obstacles
+  out.L = bb.x1 - bb.x0
+  out.W = bb.z1 - bb.z0
+  out.building = { kind: 'terrace', H, parapet: 0.9, ring }
+  out.neighbours = t.neighbours ?? []
+  out.terrace = t
+  const rects = obstacles.map((ob) => grown(ob, 0.6))
+  out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
+  const outside = (x, z) => !inside([x, z], ring) || edgeDistance([x, z], ring) < p.edge - 1e-3
+  const elevated = p.elevated ? 2.2 : RACK_CLEARANCE
+  const rows = packRows(p, size, cap, {
+    base: H, clearance: elevated, tilt: p.rackTilt,
+    xSpan: out.L - 2 * p.edge, zFront: bb.z1 - p.edge, zBack: bb.z0 + p.edge,
+  }, keepOut(rects, [outside]), rects)
+  Object.assign(out, { panels: rows.panels, posts: rows.posts, rails: rows.rails })
+  out.rowInfo = rows
+  out.arrays.push({ name: 'Terrace racks', tilt: p.rackTilt, azimuth: norm360(p.azimuth), count: rows.panels.length, rows: rows.rows, cols: rows.cols })
+  out.zones.push([...ring.map(([x, z]) => [x, H + 0.05, z]), [ring[0][0], H + 0.05, ring[0][1]]])
+  out.surface = area(ring)
+  out.plan = out.surface
+  out.bounds = { x0: bb.x0 - 1, x1: bb.x1 + 1, z0: bb.z0 - 1, z1: bb.z1 + 1, h: H + 3 }
+}
+
 /** Plan rectangle of an obstacle grown by `clear` on every side. */
 const grown = (o, clear) => ({ x0: o.x - o.w / 2 - clear, x1: o.x + o.w / 2 + clear, z0: o.z - o.d / 2 - clear, z1: o.z + o.d / 2 + clear })
 
@@ -399,6 +446,8 @@ export function computeLayout(input) {
     out.surface = L * W
     out.plan = L * W
     if (p.edge < 1.2) out.notes.push('Commercial roofs usually keep a 1.2 m (4 ft) perimeter pathway clear.')
+  } else if (p.site === 'terrace') {
+    terrace(p, size, cap, out)
   } else if (p.site === 'carport') {
     out.building = { kind: 'carport' }
     const res = carPark(p, size, cap, out, { centre: true })

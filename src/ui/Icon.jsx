@@ -1,5 +1,7 @@
 // Small 24px stroke icons in one line style.
 const PATHS = {
+  // Flat-roof house: parapet, stair room (mumty) and a water tank on the terrace.
+  terrace: 'M4 20V11h16v9M3 11h18M6 11V8.5h4V11M14.5 11V9a1.5 1.5 0 0 1 3 0v2M10 20v-4h4v4',
   gable: 'M3 11 12 4l9 7M5.5 9.5V20h13V9.5M10 20v-5h4v5',
   shed: 'M3 10.5 21 6M5 10v10h14V7M10 20v-5h4v5',
   flat: 'M4 7h16v13H4zM4 4.5h16M8 11h2M14 11h2M8 15h2M14 15h2',
@@ -52,6 +54,8 @@ const PATHS = {
   brush: 'M14.5 4.5l5 5L11 18l-5-5zM6 13l-2.5 6.5L10 17',
   undo: 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
   redo: 'm15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13',
+  cube: 'M12 3.5 20 8v8l-8 4.5L4 16V8zM4 8l8 4.5L20 8M12 12.5v8',
+  close: 'M6 6l12 12M18 6 6 18',
   thermo: 'M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0zM12 9v8',
 }
 

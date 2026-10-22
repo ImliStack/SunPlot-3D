@@ -10,7 +10,7 @@ const ENUMS = { site: SITES, panel: PANELS, climate: CLIMATES }
 function hashOf(params) {
   const q = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) {
-    if (v === DEFAULTS[k]) continue
+    if (v === DEFAULTS[k] || (v && typeof v === 'object')) continue // outlines stay out of the URL
     q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : typeof v === 'number' ? String(Math.round(v * 100) / 100) : v)
   }
   const s = q.toString()

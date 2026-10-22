@@ -1,10 +1,14 @@
-import { Component, useEffect, useMemo, useState } from 'react'
+import { Component, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import Stage from './scene/Stage.jsx'
 import Inputs from './ui/Inputs.jsx'
 import Results from './ui/Results.jsx'
 import Icon from './ui/Icon.jsx'
 import TagLayer from './ui/TagLayer.jsx'
 import Proposal from './ui/Proposal.jsx'
+import PanelToggles from './ui/PanelToggles.jsx'
+
+// The map-based survey (MapLibre) loads only when someone opens it.
+const Survey = lazy(() => import('./survey/Survey.jsx'))
 import { useSolar } from './store.js'
 import { useCandidates, useLayout, useYield } from './hooks.js'
 import { TOOLS, indexArrays, targetsFor, describe } from './installTools.js'
@@ -274,34 +278,6 @@ class StageBoundary extends Component {
   }
 }
 
-/** Edge handles that fold the side panels away to give the 3D view the full width. */
-function PanelToggles() {
-  const panels = useSolar((s) => s.panels)
-  const toggle = useSolar((s) => s.togglePanel)
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.closest?.('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey) return
-      if (e.key === '[') toggle('left')
-      if (e.key === ']') toggle('right')
-      if (e.key === '\\') toggle('focus')
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [toggle])
-  const btn = (side, open, label) => (
-    <button className={`edge-toggle is-${side}`} onClick={() => toggle(side)} aria-expanded={open}
-      aria-label={`${open ? 'Hide' : 'Show'} ${label}`} data-tip={`${open ? 'Hide' : 'Show'} ${label} · ${side === 'left' ? '[' : ']'}`}>
-      <Icon name={(side === 'left') === open ? 'chevL' : 'chevR'} size={16} />
-    </button>
-  )
-  return (
-    <>
-      {btn('left', panels.left, 'inputs')}
-      {btn('right', panels.right, 'results')}
-    </>
-  )
-}
-
 export default function App() {
   const theme = useSolar((s) => s.theme)
   const panels = useSolar((s) => s.panels)
@@ -309,21 +285,30 @@ export default function App() {
   useClimateFetch()
   useShadingStudy()
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  const mode = useSolar((s) => s.mode)
   return (
-    <div className={`app ${panels.left ? '' : 'no-left'} ${panels.right ? '' : 'no-right'}`}>
-      <Inputs />
-      <main className="stage">
-        <StageBoundary><Stage /></StageBoundary>
-        <TagLayer />
-        <Tools />
-        <PanelToggles />
-        <HudCompass />
-        <Legend />
-        <InstallBar />
-        <WeatherEffect />
-        <SunBar />
-      </main>
-      <Results />
+    <div className={`app ${mode === 'survey' ? 'is-survey' : ''} ${panels.left ? '' : 'no-left'} ${panels.right ? '' : 'no-right'}`}>
+      {mode === 'survey' ? (
+        <Suspense fallback={<div className="empty">Loading the map…</div>}>
+          <Survey />
+        </Suspense>
+      ) : (
+        <>
+          <Inputs />
+          <main className="stage">
+            <StageBoundary><Stage /></StageBoundary>
+            <TagLayer />
+            <Tools />
+            <PanelToggles />
+            <HudCompass />
+            <Legend />
+            <InstallBar />
+            <WeatherEffect />
+            <SunBar />
+          </main>
+          <Results />
+        </>
+      )}
     </div>
   )
 }

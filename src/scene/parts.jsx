@@ -91,6 +91,8 @@ export function materials() {
     hvac: new THREE.MeshStandardMaterial({ color: '#c5c9cc', metalness: 0.3, roughness: 0.55 }),
     fan: new THREE.MeshStandardMaterial({ color: '#2d3136', roughness: 0.6 }),
     white: new THREE.MeshStandardMaterial({ color: '#f2f3f5', roughness: 0.4, metalness: 0.1 }),
+    tank: new THREE.MeshStandardMaterial({ color: '#202326', roughness: 0.55 }),
+    neighbour: new THREE.MeshStandardMaterial({ color: '#cfc8bb', roughness: 0.9 }),
   }
   return shared
 }

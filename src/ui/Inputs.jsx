@@ -3,6 +3,7 @@ import { useSolar } from '../store.js'
 import { PANELS, SITES, CLIMATES, PLACES, SHOWS, bestTilt } from '../presets.js'
 import { geocode } from '../installations.js'
 import Icon from './Icon.jsx'
+import Brand from './Brand.jsx'
 
 const compass = (az) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round((((az % 360) + 360) % 360) / 45) % 8]
 const HOUSES = ['gable', 'hip', 'lshape', 'shed']
@@ -165,19 +166,14 @@ function ClimateStatus() {
 
 export default function Inputs() {
   const p = useSolar((s) => s.params)
-  const { set, setPlace, reset } = useSolar.getState()
+  const { set, setPlace } = useSolar.getState()
   const isHouse = HOUSES.includes(p.site)
   const isCanopy = ['carport', 'busstop'].includes(p.site)
   const structure = isHouse ? 'Building' : p.site === 'ground' ? 'Plot' : isCanopy ? 'Structure' : p.site === 'airport' ? 'Terminal & car park' : 'Building'
 
   return (
     <aside className="inputs" aria-label="Design inputs">
-      <div className="brand-row">
-        <a className="brand" href="#" onClick={(e) => { e.preventDefault(); reset() }}>
-          <span className="brand-mark" aria-hidden="true" />SunPlot
-        </a>
-        <button className="ghost-btn" onClick={reset} data-tip="Reset all inputs" aria-label="Reset all inputs"><Icon name="reset" size={16} /></button>
-      </div>
+      <Brand />
       <p className="lede">Lay out PV on homes, buildings, carports, shelters, airports or open land — with measured climate.</p>
 
       <SitePicker />

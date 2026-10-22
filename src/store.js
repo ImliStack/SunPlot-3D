@@ -19,9 +19,34 @@ function storedPanels() {
 }
 
 // Starting sizes per site type, so switching type gives a sensible picture straight away.
+const EMPTY_SURVEY = {
+  center: null, // [lon, lat] searched
+  pin: null, // [lon, lat] red pin (searched place, my location, or dragged)
+  view: null, // map centre, to bias address suggestions
+  locate: 0, // bumped to ask the map for the device location
+  locError: '',
+  address: '',
+  state: '', // Indian state, for subsidy rates and the vendor list
+  tool: 'pick', // pick | draw | mumty | tank
+  buildings: [], // OSM buildings around the address
+  status: 'idle', // idle | loading | ready | error
+  error: '',
+  ring: null, // chosen roof outline
+  neighbours: [], // Overture buildings around it: [{ ring, height }]
+  draft: [], // points while drawing
+  levels: null,
+  mumty: null,
+  tank: null,
+  front: 'S', // street side
+  units: 300, // kWh per month
+  bill: 0, // ₹ per month (alternative to units)
+  sanctioned: 0, // kW, 0 = unknown
+}
+
 const EMPTY_INSTALL = { mode: 'auto', tool: 'module', sel: {}, anim: {}, past: [], future: [] }
 
 export const SITE_SIZES = {
+  terrace: { floors: 2, edge: 0.6, rackTilt: 20, panel: 'dcr580', portrait: true, stack: 1, elevated: true },
   gable: { length: 12, width: 9, floors: 2, pitch: 26, edge: 0.45, ridge: 0.45, panel: 'res430', portrait: true, vents: 2 },
   hip: { length: 14, width: 10, floors: 2, pitch: 24, edge: 0.45, ridge: 0.45, panel: 'res430', portrait: true, vents: 2 },
   lshape: { length: 14, width: 8, wingLength: 7, wingWidth: 7, floors: 2, pitch: 30, edge: 0.45, ridge: 0.45, panel: 'res430', portrait: true, vents: 1 },
@@ -50,6 +75,10 @@ export const useSolar = create((set, get) => ({
   // Click-to-install: installed module keys, their drop-in start times, the active tool and
   // undo / redo history of selections.
   install: { ...EMPTY_INSTALL },
+  // App mode: the 3D design studio, or the map-based site survey.
+  mode: 'studio',
+  // Site survey, all in [lon, lat]: chosen building ring, stair room / tank points, neighbours, bill.
+  survey: { ...EMPTY_SURVEY },
   // Module under the pointer in click-to-install mode (index into the candidate layout).
   hover: null,
   useMeasured: true,
@@ -121,6 +150,21 @@ export const useSolar = create((set, get) => ({
     return { install: { ...s.install, sel: next, anim: {}, past: [...s.install.past, s.install.sel], future } }
   }),
   setHover: (hover) => set({ hover }),
+  setMode: (mode) => set({ mode }),
+  /** Leave the survey for the studio with the recommended modules installed (click-to-install mode). */
+  openInStudio: (keys) => set((s) => {
+    const now = performance.now()
+    const gap = Math.min(40, 1500 / Math.max(1, keys.length))
+    return {
+      mode: 'studio',
+      install: { ...EMPTY_INSTALL, tool: s.install.tool, mode: 'manual',
+        sel: Object.fromEntries(keys.map((k) => [k, true])),
+        anim: Object.fromEntries(keys.map((k, i) => [k, now + 400 + i * gap])) },
+      camera: { type: 'home', n: s.camera.n + 1 },
+    }
+  }),
+  patchSurvey: (values) => set((s) => ({ survey: { ...s.survey, ...values } })),
+  resetSurvey: () => set({ survey: { ...EMPTY_SURVEY } }),
 
   setUseMeasured: (useMeasured) => set({ useMeasured }),
   setTab: (tab) => set({ tab }),

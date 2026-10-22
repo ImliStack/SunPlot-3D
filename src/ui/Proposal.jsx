@@ -45,6 +45,7 @@ export default function Proposal() {
       const doc = await buildProposal({
         params, layout, yield: y, date: new Date(), client: client.trim(), preparer: preparer.trim(),
         images: { hero, plan },
+        survey: params.site === 'terrace' ? useSolar.getState().survey.summary ?? null : null,
         save: !(import.meta.env.DEV && window.__noSave), // local checks skip the download
         climate: climate.status === 'ready' ? { years: climate.data.years, summary: climate.summary } : null,
       })
@@ -65,7 +66,7 @@ export default function Proposal() {
       {open && (
         <div className="proposal-pop" role="dialog" aria-label="Client proposal">
           <strong>Client proposal</strong>
-          <p>5-page PDF: 3D view, plan, arrays, monthly energy, loss breakdown, site climate and 25-year financials.</p>
+          <p>PDF: 3D view, {params.site === 'terrace' && useSolar.getState().survey.summary ? 'site survey, ' : ''}plan, arrays, monthly energy, loss breakdown, site climate and 25-year financials.</p>
           <label className="field mini">
             <span className="field-label">Client</span>
             <input className="text" value={client} placeholder="e.g. Sharma Residence" onChange={(e) => setClient(e.target.value)} />

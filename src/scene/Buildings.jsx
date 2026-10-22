@@ -162,6 +162,19 @@ export function Obstacles({ list }) {
         </group>
       )
     }
+    if (o.kind === 'tank') {
+      // Black polyethylene water tank on a small steel stand, as on most Indian terraces.
+      return (
+        <group key={i} position={[o.x, o.y0, o.z]}>
+          {[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => (
+            <mesh key={`${a}${b}`} position={[a * 0.45, 0.35, b * 0.45]} material={m.darkSteel}><boxGeometry args={[0.06, 0.7, 0.06]} /></mesh>
+          ))}
+          <mesh position={[0, 0.72, 0]} material={m.darkSteel}><boxGeometry args={[1.2, 0.05, 1.2]} /></mesh>
+          <mesh position={[0, 1.45, 0]} material={m.tank} castShadow receiveShadow><cylinderGeometry args={[0.6, 0.65, 1.4, 24]} /></mesh>
+          <mesh position={[0, 2.18, 0]} material={m.tank} castShadow><cylinderGeometry args={[0.25, 0.6, 0.1, 24]} /></mesh>
+        </group>
+      )
+    }
     if (o.kind === 'skylight') {
       return (
         <group key={i} position={[o.x, y, o.z]}>
@@ -366,6 +379,45 @@ export function GroundPlot({ layout }) {
       {wires.map(([a, b], i) => <Strip key={`w${i}`} a={a} b={b} w={0.025} h={0.025} material={m.steel} />)}
       {/* Inverter / transformer skid at the gate. */}
       <mesh position={[L / 2 - 1.2, 0.8, W / 2 + 1.4]} material={m.hvac} castShadow receiveShadow><boxGeometry args={[1.8, 1.6, 1.1]} /></mesh>
+    </group>
+  )
+}
+
+/** Extrude a ring of [x, z] site points into a prism from y0 to y0 + h. */
+function prism(ring, h) {
+  const shape = new THREE.Shape(ring.map(([x, z]) => new THREE.Vector2(x, -z)))
+  const g = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false })
+  g.rotateX(-Math.PI / 2)
+  return g
+}
+
+/** Surveyed terrace house: walls of any outline, parapet, and the neighbouring blocks around it. */
+export function TerraceHouse({ layout }) {
+  const m = materials()
+  const { ring, H, parapet } = layout.building
+  const walls = useMemo(() => prism(ring, H), [ring, H])
+  const roof = useMemo(() => {
+    const g = new THREE.ShapeGeometry(new THREE.Shape(ring.map(([x, z]) => new THREE.Vector2(x, -z))))
+    g.rotateX(-Math.PI / 2)
+    return g
+  }, [ring])
+  const neighbours = useMemo(() => layout.neighbours.map((n) => ({ g: prism(n.ring, n.h), h: n.h })), [layout.neighbours])
+  const wall = useMemo(() => {
+    const mat = m.wall.clone()
+    mat.map = repeated(textures().plaster, 4, 2)
+    return mat
+  }, [m])
+  return (
+    <group>
+      <mesh geometry={walls} material={wall} castShadow receiveShadow />
+      <mesh geometry={roof} position={[0, H + 0.01, 0]} material={m.concrete} receiveShadow />
+      {ring.map((a, i) => {
+        const b = ring[(i + 1) % ring.length]
+        return <Strip key={i} a={[a[0], H + parapet / 2, a[1]]} b={[b[0], H + parapet / 2, b[1]]} w={0.22} h={parapet} material={m.wallFlat} />
+      })}
+      {neighbours.map((n, i) => (
+        <mesh key={`n${i}`} geometry={n.g} material={m.neighbour} castShadow receiveShadow />
+      ))}
     </group>
   )
 }

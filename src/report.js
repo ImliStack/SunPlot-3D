@@ -213,6 +213,35 @@ export async function buildProposal(d) {
     y, 9,
   )
 
+  // ─── Site survey (terrace surveyed from the map) ───
+  const S = d.survey
+  if (S) {
+    doc.addPage()
+    y = heading('Site survey', S.address || place)
+    y = tiles([
+      [`${num(S.units)} kWh`, 'used per month'],
+      [`${num(S.kw, 1)} kWp`, 'suggested system'],
+      [`${num(S.modules)}`, `modules (${m.watt} W)`],
+      [`${num(S.cover * 100)} %`, 'of use covered'],
+    ], y)
+    y = h2('Where on the roof', y)
+    y = para(S.advice, y, 9.5)
+    y = table(['Part of terrace', 'Modules fit', 'Direct sun lost to shade'],
+      S.zones.map((z) => [z.name, num(z.count), `${num(z.shade * 100, 1)} %`]), y + 2, [60, 40, 60])
+    y = h2('Roof', y + 2)
+    y = para(`Roof area ${num(S.roofM2)} m² (${num(S.roofM2 * 10.764)} sq ft); it can take up to ${num(S.roofKw, 1)} kWp on an elevated structure with ${num(d.params.edge, 2)} m kept clear at the edges.` +
+      (S.limit === 'roof' ? ' The roof, not the bill, limits the size.' : S.limit === 'sanctioned' ? ' The sanctioned load limits the size; the DISCOM can raise it.' : ''), y)
+    y = h2('Cost after subsidy', y + 2)
+    y = tiles([
+      [money(S.cost), 'installed'],
+      [`-${money(S.subsidy)}`, 'PM Surya Ghar subsidy'],
+      [money(S.cost - S.subsidy), 'your cost'],
+      [S.payback ? `${num(S.payback, 1)} yr` : '-', 'payback'],
+    ], y, 15)
+    y = para(`Subsidy per MNRE PM Surya Ghar: Rs 30,000/kW up to 2 kW, Rs 18,000 for the 3rd kW, max Rs 78,000 (higher in special-category states). It needs DCR modules with Indian-made cells on ALMM List-II and a DISCOM-registered vendor${S.state ? ` in ${S.state}` : ''} — see pmsuryaghar.gov.in.`, y, 8, MUTED)
+    para('Surveyed remotely from satellite imagery and Overture / OpenStreetMap building outlines. Confirm roof strength, shade and wiring on site before installation.', y + 2, 8, MUTED)
+  }
+
   // ─── Page 2: system design ───
   doc.addPage()
   y = heading('System design', place)

@@ -138,7 +138,7 @@ installed module are hidden.
 Sources: help.aurorasolar.com (Sales Mode module placement, Design Mode panel placement),
 help-center.helioscope.com (Manually Moving Modules), support.opensolar.com (Optimizing Individual Panels and Arrays).
 
-## 8. Proposal — remote site survey for Indian homes (researched 2026-10, not built yet)
+## 8. Remote site survey for Indian homes (researched and built 2026-10)
 
 Goal: replace the installer's first home visit. From an address and an electricity bill, show where
 on the roof panels go, how many, which modules, which vendors, and what it costs after subsidy.
@@ -180,8 +180,34 @@ Build it **inside SunPlot** — it reuses the layout engine, shading, NASA clima
 A **separate backend project** only when the business side starts: customer leads and bills (personal
 data → consent, storage, DPDP Act), vendor directory and quotes, accounts. Keep the planner static.
 
-Needs from you before building: a Google Maps Platform key with Solar API + Map Tiles enabled and
-billing on (key restricted to your domain).
+**Decision (2026-10-22): free data only, users = homeowners and installers.** No Google key, so:
+
+| Need | Free source | Notes |
+|---|---|---|
+| Base map | MapLibre GL JS + OpenFreeMap vector tiles | No key |
+| Satellite | Esri World Imagery tiles | Terms for non-ArcGIS / commercial use need checking; ArcGIS Location Platform free tier as fallback |
+| Building outline | Overture Maps buildings (includes Google Open Buildings for India) via PMTiles; OSM via Overpass | Coverage good in Indian cities; heights patchy |
+| Height / floors | Overture `height` / `num_floors` when present, else user input | Google 2.5D heights exist but only as Earth Engine rasters |
+| Roof shape | Draw / adjust the roof outline on satellite — always works | Indian homes: flat terrace by default |
+| Neighbour shade | Extrude neighbouring footprints → casters in the existing ray-cast shading | Biggest gain over a plain calculator |
+
+Built (Oct 2026): `src/survey/` — MapLibre + Esri imagery, Overture buildings PMTiles (release read
+from the STAC catalog; OpenStreetMap via Overpass as backup), pick or draw the roof, stair room /
+tank markers, street side, bill → size, zone ranking, PM Surya Ghar subsidy, recommended modules on
+the map, "Open in 3D studio", and a site-survey page in the PDF. Overpass was down during testing;
+Overture outlines can sit a few metres off the imagery, so drawing stays available.
+
+Build steps (as planned):
+1. **Survey mode** in SunPlot: address → map + satellite → click your building (auto outline) or draw it.
+2. Mark the street side ("front"), mumty and water tank; floors; parapet.
+3. Layout engine learns **polygon roofs** (rows packed inside any outline, keep-outs as polygons).
+4. **Zone ranking** — front / back / left / right / centre of the terrace by kWh/kWp and shade
+   from neighbours, mumty and tank, with a plain-language suggestion.
+5. **Bill → size**: units per month (or kWh history) + sanctioned load → kW → module count; DCR / ALMM
+   module options; PM Surya Ghar subsidy; payback.
+6. Vendors: link to the official DISCOM vendor list on pmsuryaghar.gov.in for the state (no public API);
+   curated module-maker list marked indicative.
+7. "Open in 3D studio" + a site-survey page in the proposal PDF.
 
 Sources: solarquarter.com (MNRE PM Surya Ghar guidelines, Sept 2026); businesstoday.in (₹78,000 cap);
 jbvnl.co.in (CFA structure); news.metal.com (DCR premium); solarsquare.in (ALMM List-II rule);

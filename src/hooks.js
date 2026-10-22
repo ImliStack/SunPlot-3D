@@ -7,7 +7,7 @@ import { CLIMATES } from './presets.js'
 // The sun slider and day animation change `hour` / `day` every frame; the layout and yield
 // don't depend on them, so both are keyed on everything else.
 const VIEW_KEYS = new Set(['day', 'hour', 'surroundings', 'closeTrees', 'placeName', 'lon', 'cur', 'cost', 'tariff', 'co2', 'climate', 'cleanDays', 'weather'])
-export const designKey = (p) => Object.entries(p).filter(([k]) => !VIEW_KEYS.has(k)).map(([, v]) => v).join('|')
+export const designKey = (p) => Object.entries(p).filter(([k]) => !VIEW_KEYS.has(k)).map(([, v]) => (v && typeof v === 'object' ? JSON.stringify(v) : v)).join('|')
 
 /** Every array the site could take. In click-to-install mode that includes every roof plane. */
 export function useCandidates() {

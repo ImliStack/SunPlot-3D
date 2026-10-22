@@ -48,7 +48,28 @@ export function buildScene(layout, { trees = [], depth = 0.035, azimuth = 180 } 
   const box = (x0, y0, z0, x1, y1, z1) => boxes.push({ min: [x0, y0, z0], max: [x1, y1, z1] })
   for (const o of layout.obstacles) box(o.x - o.w / 2, o.y0, o.z - o.d / 2, o.x + o.w / 2, o.y0 + o.h, o.z + o.d / 2)
   const b = layout.building
-  if (b.parapet) {
+  if (b.kind === 'terrace') {
+    // Parapet along each outline edge, and neighbouring buildings as boxes (their bounding boxes).
+    const r = b.ring
+    for (let i = 0; i < r.length; i++) {
+      const [x1, z1] = r[i]
+      const [x2, z2] = r[(i + 1) % r.length]
+      // 1 m pieces, so a diagonal wall doesn't become one big box over the roof.
+      const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, z2 - z1)))
+      for (let k = 0; k < n; k++) {
+        const ax = x1 + ((x2 - x1) * k) / n
+        const az = z1 + ((z2 - z1) * k) / n
+        const bx = x1 + ((x2 - x1) * (k + 1)) / n
+        const bz = z1 + ((z2 - z1) * (k + 1)) / n
+        box(Math.min(ax, bx) - 0.1, b.H, Math.min(az, bz) - 0.1, Math.max(ax, bx) + 0.1, b.H + b.parapet, Math.max(az, bz) + 0.1)
+      }
+    }
+    for (const n of layout.neighbours ?? []) {
+      const xs = n.ring.map((q) => q[0])
+      const zs = n.ring.map((q) => q[1])
+      box(Math.min(...xs), 0, Math.min(...zs), Math.max(...xs), n.h, Math.max(...zs))
+    }
+  } else if (b.parapet) {
     const { L, W } = layout
     const t = 0.3
     const top = b.H + b.parapet

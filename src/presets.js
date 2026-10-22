@@ -4,10 +4,13 @@
 export const PANELS = {
   res430: { label: '430 W residential', note: '108 half-cell TOPCon · 1722 × 1134 mm', w: 1.134, h: 1.722, watt: 430, kg: 21 },
   com550: { label: '550 W commercial', note: '144 half-cell mono · 2278 × 1134 mm', w: 1.134, h: 2.278, watt: 550, kg: 28 },
+  dcr545: { label: '545 W DCR mono PERC', note: 'Made-in-India cells (ALMM List-II) · 2279 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.279, watt: 545, kg: 27.5, dcr: true },
+  dcr580: { label: '580 W DCR TOPCon', note: 'Made-in-India cells (ALMM List-II) · 2278 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.278, watt: 580, kg: 28, dcr: true },
   utl620: { label: '620 W utility bifacial', note: '132 half-cell TOPCon · 2382 × 1134 mm', w: 1.134, h: 2.382, watt: 620, kg: 33 },
 }
 
 export const SITES = {
+  terrace: { group: 'Homes', label: 'Terrace (site survey)', short: 'Terrace', hint: 'Flat terrace of any shape — from the site survey map or a default outline' },
   gable: { group: 'Homes', label: 'House · gable roof', short: 'Gable', hint: 'Two roof planes meeting at a ridge' },
   hip: { group: 'Homes', label: 'House · hip roof', short: 'Hip', hint: 'Four planes: two trapezoids and two triangular ends' },
   lshape: { group: 'Homes', label: 'L-shaped house', short: 'L-shape', hint: 'Main wing plus a side wing, with valleys between' },
@@ -101,21 +104,24 @@ export const DEFAULTS = {
   surroundings: true,
   weather: 'auto', // auto (this month from data) | clear | rain | snow
   closeTrees: false, // mature trees right next to the site (shade study)
+  elevated: true, // terrace: raised structure so the terrace stays usable
+  terrace: null, // terrace: { outline, mumty, tank, neighbours, front, address } in site metres
 }
 
 const HOUSES = ['gable', 'hip', 'lshape', 'shed']
 
 // Inputs that only exist for some site types.
 export const SHOWS = {
-  floors: [...HOUSES, 'flat', 'airport'],
+  floors: [...HOUSES, 'flat', 'airport', 'terrace'],
+  elevated: ['terrace'],
   pitch: HOUSES,
   bothFaces: ['gable', 'hip', 'lshape'],
   ridge: HOUSES,
-  edge: [...HOUSES, 'flat', 'ground', 'airport'],
-  rackTilt: ['flat', 'airport'],
+  edge: [...HOUSES, 'flat', 'ground', 'airport', 'terrace'],
+  rackTilt: ['flat', 'airport', 'terrace'],
   groundTilt: ['ground'],
   clearance: ['ground'],
-  stack: ['flat', 'ground', 'airport'],
+  stack: ['flat', 'ground', 'airport', 'terrace'],
   chimney: HOUSES,
   chimneyX: HOUSES,
   vents: [...HOUSES, 'flat', 'airport'],

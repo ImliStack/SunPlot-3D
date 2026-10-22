@@ -83,6 +83,15 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 - **Engineering overlays** — usable-area outlines, red keep-outs, lettered array tags, dimensions,
   HUD compass. Ambient occlusion and reflections, with a quality switch for slower devices.
 
+**Survey (India)**
+- **Site survey without a visit** — find the house on satellite imagery, click its outline (Overture
+  Maps buildings, OpenStreetMap as backup) or draw it, mark the stair room, water tank and street side.
+- **Bill → system** — monthly units (or ₹ bill), sanctioned load and state give the size, number of
+  DCR modules, PM Surya Ghar subsidy (₹78,000 cap, special-category states), cost after subsidy and payback.
+- **Where on the roof** — front / back / left / right / centre of the terrace ranked by shade from
+  neighbouring buildings, the stair room, tank and parapet; the least-shaded spots drawn on the map.
+- **Open in the 3D studio** with the recommended modules installed, and a site-survey page in the PDF.
+
 **Share**
 - **Client proposal (PDF)** — 3D view, north-up plan, arrays, monthly energy, loss waterfall, P90,
   site climate and 25-year financials, in one click.
@@ -358,7 +367,9 @@ permits and grid connection still need a qualified installer.
 - [x] Ray-cast shading, rain / dust / snow losses, weather in 3D
 - [x] Click to install by module, row, column, array or paint, with undo
 - [x] Client proposal PDF, nearby and landmark installations
-- [ ] Draw your own roof outline over a satellite map
+- [x] Remote site survey for Indian homes: satellite, building outlines, bill-based sizing, subsidy, roof zones
+- [ ] Pitched roofs and multi-level terraces in the survey
+- [ ] Customer leads, bill upload and vendor quotes (separate backend)
 - [ ] Strings, inverters and MPPT assignment with voltage checks
 - [ ] Hourly TMY weather (PVGIS / NREL) and bifacial gain
 - [ ] Wind and snow load zones per region
@@ -383,6 +394,9 @@ Issues and pull requests are welcome.
 | [NASA POWER](https://power.larc.nasa.gov/) | Monthly irradiance, temperature, rain, snow | Public, free use with attribution |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) via Overpass | Solar plants near the site | ODbL |
 | [Open-Meteo](https://open-meteo.com/) | Place search (geocoding) | CC BY 4.0 |
+| [Overture Maps](https://overturemaps.org/) | Building outlines and heights (survey) | ODbL / CC BY 4.0 |
+| [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Satellite base map (survey) | Esri terms — check before commercial use |
+| [MapLibre GL JS](https://maplibre.org/) | Survey map | BSD-3 |
 | [three.js](https://threejs.org), [React Three Fiber](https://github.com/pmndrs/react-three-fiber), [drei](https://github.com/pmndrs/drei), [postprocessing](https://github.com/pmndrs/postprocessing) | 3D rendering | MIT |
 | [jsPDF](https://github.com/parallax/jsPDF) | Proposal PDF | MIT |
 | Google Fonts | Newsreader, Inter | OFL |
