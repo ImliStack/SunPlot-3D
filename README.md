@@ -15,7 +15,10 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 [![React Three Fiber](https://img.shields.io/badge/React_Three_Fiber-9-1e3a5f?style=flat-square)](https://github.com/pmndrs/react-three-fiber)
 [![Vite 5](https://img.shields.io/badge/Vite-5-646cff?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Node ≥ 18](https://img.shields.io/badge/node-%E2%89%A5%2018-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Live demo](https://img.shields.io/badge/live_demo-sunplot--3d.imlistack.workers.dev-f2b33d?style=flat-square)](https://sunplot-3d.imlistack.workers.dev)
 [![Climate: NASA POWER](https://img.shields.io/badge/climate-NASA_POWER-d9900f?style=flat-square)](https://power.larc.nasa.gov/)
+
+**[▶ Open the live app](https://sunplot-3d.imlistack.workers.dev)**
 
 [Features](#-features) · [Quick start](#-quick-start) · [Shortcuts](#-keyboard-shortcuts) · [How it works](#-how-it-works) · [Project structure](#-project-structure) · [Roadmap](#-roadmap)
 
