@@ -102,7 +102,14 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   DCR modules, PM Surya Ghar subsidy (₹78,000 cap, special-category states), cost after subsidy and payback.
 - **Where on the roof** — front / back / left / right / centre of the terrace ranked by shade from
   neighbouring buildings, the stair room, tank and parapet; the least-shaded spots drawn on the map.
-- **Open in the 3D studio** with the recommended modules installed, and a site-survey page in the PDF.
+- **Survey public buildings** — filter schools, colleges, hospitals, banks, supermarkets (DMart, Big Bazaar,
+  Reliance Smart…), malls, petrol pumps and hotels from Overture Maps places; pick one from the nearby list
+  and SunPlot flies there, selects its building, sizes from a typical monthly use for that kind of site and
+  explains the non-home route (RESCO / PPA, accelerated depreciation) instead of the home subsidy.
+- **3D survey map** — one click extrudes every building to its mapped height, with the chosen roof in amber
+  and the suggested modules sitting on top.
+- **Open in the 3D studio** with the recommended modules installed — school, hospital, retail, office and
+  petrol-pump facades with the building's name board — and a site-survey page in the PDF.
 
 **Share**
 - **Client proposal (PDF)** — 3D view, north-up plan, arrays, monthly energy, loss waterfall, P90,
@@ -121,6 +128,16 @@ rain and the snow, and send the client a proposal in one click. No install, no p
     <td align="center"><sub><b>Find the house</b> — type-ahead + pin</sub></td>
     <td align="center"><sub><b>Survey</b> — 3.5 kWp, ₹78,000 subsidy</sub></td>
     <td align="center"><sub><b>Opened in 3D</b> — neighbours, tank, elevated racks</sub></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/survey-places.jpg" alt="Site survey: hospitals, schools, malls, banks and petrol pumps near the map centre" /></td>
+    <td width="33%"><img src="docs/screenshots/survey-3d.jpg" alt="3D survey map with extruded buildings and the hospital roof in amber" /></td>
+    <td width="33%"><img src="docs/screenshots/studio-hospital.jpg" alt="Hospital opened in the 3D studio with its facade and name board" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Public buildings</b> — schools, hospitals, malls…</sub></td>
+    <td align="center"><sub><b>3D map</b> — mapped heights, roof in amber</sub></td>
+    <td align="center"><sub><b>In the studio</b> — hospital facade + name board</sub></td>
   </tr>
 </table>
 
@@ -398,6 +415,7 @@ permits and grid connection still need a qualified installer.
 - [x] Click to install by module, row, column, array or paint, with undo
 - [x] Client proposal PDF, nearby and landmark installations
 - [x] Remote site survey for Indian homes: satellite, building outlines, bill-based sizing, subsidy, roof zones
+- [x] Schools, hospitals, banks, supermarkets, malls and petrol pumps in the survey, with a 3D map and styled facades
 - [ ] Pitched roofs and multi-level terraces in the survey
 - [ ] Customer leads, bill upload and vendor quotes (separate backend)
 - [ ] Strings, inverters and MPPT assignment with voltage checks
@@ -439,7 +457,7 @@ Issues and pull requests are welcome.
 | [NASA POWER](https://power.larc.nasa.gov/) | Monthly irradiance, temperature, rain, snow | Public, free use with attribution |
 | [OpenStreetMap](https://www.openstreetmap.org/copyright) via Overpass | Solar plants near the site | ODbL |
 | [Open-Meteo](https://open-meteo.com/) | Place search (geocoding) | CC BY 4.0 |
-| [Overture Maps](https://overturemaps.org/) | Building outlines and heights (survey) | ODbL / CC BY 4.0 |
+| [Overture Maps](https://overturemaps.org/) | Building outlines, heights and places (survey) | ODbL / CC BY 4.0 |
 | [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Satellite base map (survey) | Esri terms — check before commercial use |
 | [MapLibre GL JS](https://maplibre.org/) | Survey map | BSD-3 |
 | [three.js](https://threejs.org), [React Three Fiber](https://github.com/pmndrs/react-three-fiber), [drei](https://github.com/pmndrs/drei), [postprocessing](https://github.com/pmndrs/postprocessing) | 3D rendering | MIT |

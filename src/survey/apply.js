@@ -1,5 +1,6 @@
 import { toLocal, bbox, centroid, openRing } from './geo.js'
 import { equatorAzimuth } from '../presets.js'
+import { CAT_BY_KEY } from './poi.js'
 
 const LEVEL_M = 3.2
 
@@ -28,7 +29,7 @@ export function surveyToParams(sv) {
     site: 'terrace',
     lat: Math.round(lat * 1000) / 1000,
     lon: Math.round(origin[0] * 1000) / 1000,
-    placeName: sv.address || 'Surveyed site',
+    placeName: sv.poi?.name || sv.address || 'Surveyed site',
     place: '',
     azimuth: equatorAzimuth(lat),
     ...(sv.levels ? { floors: Math.max(1, Math.round(sv.levels)) } : {}),
@@ -39,6 +40,8 @@ export function surveyToParams(sv) {
       neighbours,
       front: sv.front,
       origin,
+      style: sv.poi ? CAT_BY_KEY[sv.poi.cat]?.style ?? 'office' : 'home', // facade look in 3D
+      name: sv.poi?.name ?? '',
     },
   }
 }

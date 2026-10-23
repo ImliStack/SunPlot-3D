@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { DEFAULTS, PLACES, bestTilt, equatorAzimuth } from './presets.js'
 import { dayLength } from './solar.js'
+import { CAT_BY_KEY } from './survey/poi.js'
 
 function storedTheme() {
   try {
@@ -31,6 +32,11 @@ const EMPTY_SURVEY = {
   buildings: [], // OSM buildings around the address
   status: 'idle', // idle | loading | ready | error
   error: '',
+  poiCats: [], // place categories shown on the map (school, hospital, mall…)
+  poiList: [], // places of those categories near the map centre
+  poi: null, // the place being surveyed: { id, name, cat, brand, lon, lat }
+  poiGo: 0, // bumped to fly to `poi` and pick its building
+  map3d: false, // extruded 3D buildings on the survey map
   ring: null, // chosen roof outline
   neighbours: [], // Overture buildings around it: [{ ring, height }]
   draft: [], // points while drawing
@@ -165,6 +171,12 @@ export const useSolar = create((set, get) => ({
   }),
   patchSurvey: (values) => set((s) => ({ survey: { ...s.survey, ...values } })),
   resetSurvey: () => set({ survey: { ...EMPTY_SURVEY } }),
+  /** Survey a famous building: pin it, fly there, and let the map pick the building under it. */
+  selectPlace: (poi) => set((s) => ({
+    survey: { ...s.survey, poi, poiGo: s.survey.poiGo + 1, pin: [poi.lon, poi.lat], address: poi.name, ring: null, draft: [],
+      mumty: null, tank: null, neighbours: [], tool: 'pick', locError: '',
+      units: CAT_BY_KEY[poi.cat]?.units ?? s.survey.units, bill: 0, sanctioned: 0 },
+  })),
 
   setUseMeasured: (useMeasured) => set({ useMeasured }),
   setTab: (tab) => set({ tab }),

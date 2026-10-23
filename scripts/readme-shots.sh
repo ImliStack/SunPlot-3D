@@ -46,6 +46,27 @@ survey() {
   echo "ok $name"
 }
 
+# Places: Jaipur hospitals/schools/malls…, pick Integral Hospital; 2D list, 3D map, then the studio.
+places() {
+  local name=$1 extra=${2:-}
+  n=$((n+1))
+  b goto "http://localhost:5181/?s=$n" >/dev/null; sleep 4
+  b js "window.__solar.getState().setMode('survey'); 'ok'" >/dev/null; sleep 3
+  b js "window.__solar.getState().patchSurvey({ center: [75.8073, 26.8540], view: [75.8073, 26.8540], address: 'Malviya Nagar, Jaipur', state: 'Rajasthan', poiCats: ['hospital', 'mall', 'fuel', 'supermarket', 'school', 'bank'] }); 'ok'" >/dev/null; sleep 4
+  b js "window.__surveyMap.jumpTo({ center: [75.8073, 26.8540], zoom: 15.5 }); 'ok'" >/dev/null
+  for i in $(seq 1 15); do sleep 2; c=$(b js "window.__solar.getState().survey.poiList.length" 2>/dev/null | tail -1); [ "${c:-0}" -gt 5 ] 2>/dev/null && break; done
+  if [ "$extra" != "list" ]; then
+    b js "const s = window.__solar.getState(); s.selectPlace(s.survey.poiList.find(x => x.name === 'Integral Hospital') ?? s.survey.poiList.find(x => x.cat === 'hospital')); 'ok'" >/dev/null; sleep 12
+  fi
+  [ "$extra" = "3d" ] || [ "$extra" = "studio" ] && { b js "window.__solar.getState().patchSurvey({ map3d: true }); 'ok'" >/dev/null; sleep 6; }
+  if [ "$extra" = "studio" ]; then
+    b js "[...document.querySelectorAll('button')].find(x => x.textContent.includes('Open this design'))?.click(); 'ok'" >/dev/null; sleep 10
+  fi
+  b screenshot --viewport "$OUT/$name.png" >/dev/null
+  sips -s format jpeg -s formatOptions 82 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null && rm "$OUT/$name.png"
+  echo "ok $name"
+}
+
 b viewport 1440x900 >/dev/null
 prefs light
 shot overview-light "#day=172&hour=10" 9
@@ -63,6 +84,9 @@ shot rain "#place=mumbai&placeName=Mumbai&lat=19.1&lon=72.88&climate=monsoon&day
 survey survey-search search
 survey survey
 survey survey-studio studio
+places survey-places list
+places survey-3d 3d
+places studio-hospital studio
 prefs dark
 shot overview-dark "#day=172&hour=10" 9
 prefs light false false

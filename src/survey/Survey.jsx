@@ -10,6 +10,7 @@ import { surveyToParams } from './apply.js'
 import { area, openRing, toLocal } from './geo.js'
 import { subsidy, isSpecialState, sizeSystem, rankZones, bestModules, placementAdvice, MAKERS } from './sizing.js'
 import SurveyMap from './SurveyMap.jsx'
+import { POI_CATS, CAT_BY_KEY } from './poi.js'
 import Icon from '../ui/Icon.jsx'
 import Brand from '../ui/Brand.jsx'
 import PanelToggles from '../ui/PanelToggles.jsx'
@@ -116,6 +117,43 @@ function FindHouse() {
   )
 }
 
+/** Famous buildings near the map centre, by category — click one to survey its roof. */
+function PlacesFinder() {
+  const cats = useSolar((s) => s.survey.poiCats)
+  const list = useSolar((s) => s.survey.poiList)
+  const current = useSolar((s) => s.survey.poi)
+  const { patchSurvey, selectPlace } = useSolar.getState()
+  const toggle = (k) => patchSurvey({ poiCats: cats.includes(k) ? cats.filter((x) => x !== k) : [...cats, k] })
+  const dist = (m) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`)
+  return (
+    <div className="places-finder">
+      <span className="field-label">Or survey a public building nearby</span>
+      <div className="chips cat-chips">
+        {POI_CATS.map((c) => (
+          <button key={c.key} className={`chip ${cats.includes(c.key) ? 'is-on' : ''}`} onClick={() => toggle(c.key)} aria-pressed={cats.includes(c.key)}>
+            <i className="cat-dot" style={{ background: c.color }} />{c.label}
+          </button>
+        ))}
+      </div>
+      {cats.length > 0 && (
+        list.length ? (
+          <ul className="place-list">
+            {list.slice(0, 12).map((p) => (
+              <li key={p.id}>
+                <button className={current?.id === p.id ? 'is-on' : ''} onClick={() => selectPlace(p)}>
+                  <i className="cat-dot" style={{ background: CAT_BY_KEY[p.cat]?.color }} />
+                  <span><b>{p.name}</b><small>{CAT_BY_KEY[p.cat]?.label.replace(/s$/, '')}{p.brand && p.brand !== p.name ? ` · ${p.brand}` : ''}</small></span>
+                  <em>{dist(p.dist)}</em>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="field-hint">None of these mapped near the map centre — zoom out or move the map.</p>
+      )}
+    </div>
+  )
+}
+
 function Steps() {
   const sv = useSolar((s) => s.survey)
   const floors = useSolar((s) => s.params.floors)
@@ -135,8 +173,9 @@ function Steps() {
       <Brand />
       <p className="lede">Survey a roof without a site visit — SunPlot suggests the system, where it goes and the cost after subsidy.</p>
 
-      <Step n={1} title="Find the house" done={!!sv.center}>
+      <Step n={1} title="Find the building" done={!!(sv.center || sv.poi)}>
         <FindHouse />
+        <PlacesFinder />
       </Step>
 
       <Step n={2} title="Outline the roof" done={!!sv.ring} summary={sv.ring ? `${fmt(roofM2)} m²` : ''}>
@@ -213,6 +252,20 @@ function Results({ rec }) {
   const m = PANELS[params.panel]
   return (
     <aside className="results survey-results" aria-label="Survey results">
+      {rec.poi && (
+        <div className="poi-head">
+          <i className="cat-dot" style={{ background: CAT_BY_KEY[rec.poi.cat]?.color }} />
+          <span><b>{rec.poi.name}</b><small>{CAT_BY_KEY[rec.poi.cat]?.label.replace(/s$/, '')}{rec.poi.brand && rec.poi.brand !== rec.poi.name ? ` · ${rec.poi.brand}` : ''}</small></span>
+        </div>
+      )}
+      {rec.poi && (
+        <ul className="notes"><li><Icon name="info" size={15} />
+          PM Surya Ghar subsidy is for homes only. {rec.poi.cat === 'school' || rec.poi.cat === 'college' || rec.poi.cat === 'hospital'
+            ? 'Schools and hospitals often go solar through state schemes or a RESCO / PPA model (no upfront cost).'
+            : 'Businesses can usually claim accelerated depreciation on solar — check with a tax adviser.'}
+          {rec.poi.cat === 'fuel' ? ' At petrol pumps the canopy over the dispensers is the usual spot; this survey covers the main building roof.' : ''}
+        </li></ul>
+      )}
       <div className="hero">
         <div className="stat is-big"><span className="stat-value">{fmt(rec.size.kw, 1)}<small> kWp</small></span><span className="stat-label">suggested system</span></div>
         <div className="stat is-big"><span className="stat-value">{rec.size.modules}</span><span className="stat-label">× {m.watt} W modules</span></div>
@@ -253,7 +306,7 @@ function Results({ rec }) {
 
       <section className="card grid2">
         <div className="stat"><span className="stat-value">{inr(rec.cost)}</span><span className="stat-label">installed (₹{fmt(params.cost)}/W)</span></div>
-        <div className="stat"><span className="stat-value">−{inr(rec.subsidy)}</span><span className="stat-label">PM Surya Ghar subsidy{rec.special ? ' (special-category state)' : ''}</span></div>
+        <div className="stat"><span className="stat-value">−{inr(rec.subsidy)}</span><span className="stat-label">{rec.residential ? `PM Surya Ghar subsidy${rec.special ? ' (special-category state)' : ''}` : 'no home subsidy (not a house)'}</span></div>
         <div className="stat"><span className="stat-value">{inr(rec.cost - rec.subsidy)}</span><span className="stat-label">your cost</span></div>
         <div className="stat"><span className="stat-value">{rec.payback ? fmt(rec.payback, 1) : '—'}<small> yr</small></span><span className="stat-label">payback ({inr(rec.savings)}/yr saved)</span></div>
       </section>
@@ -327,7 +380,9 @@ export default function Survey() {
     const yearly = size.kw * y.specific * (1 + (y.shadingLoss ?? 0)) * (1 - 0.75 * avgShade)
     const cost = size.kw * 1000 * params.cost
     const special = isSpecialState(sv.state)
-    const sub = subsidy(size.kw, special)
+    // PM Surya Ghar covers homes only; schools, hospitals, shops and offices pay full price.
+    const residential = !sv.poi
+    const sub = residential ? subsidy(size.kw, special) : 0
     const savings = Math.min(yearly, units * 12) * params.tariff
     const ring = openRing(sv.ring)
     const roofM2 = area(ring.map((p) => toLocal(p, ring[0])))
@@ -335,6 +390,7 @@ export default function Survey() {
       size, zones, keys, yearly, cost, subsidy: sub, special, savings, roofKw, roofM2, units,
       payback: savings ? (cost - sub) / savings : 0, shaded: !!shade,
       advice: placementAdvice(zones, sv.mumty, sv.tank),
+      residential, poi: sv.poi,
     }
   }, [sv, params, layout, y, shading, install])
 

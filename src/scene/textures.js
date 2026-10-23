@@ -171,3 +171,65 @@ export function labelTexture(text, { color = '#1f2937', bg = 'rgba(255,255,255,.
     g.fillText(text, 64, 68)
   })
 }
+
+// Facade tiles: one 3 m bay × one 3 m storey, painted per building type. Walls of extruded
+// buildings get UVs in metres, so a repeat of 1/3 lays one tile per bay and floor.
+const FACADES = {
+  home: { wall: '#ece4d6', glass: '#2c3e50', win: [0.3, 0.32, 0.4, 0.42], frame: '#f7f3ea' },
+  neighbour: { wall: '#ddd6ca', glass: '#46525f', win: [0.32, 0.35, 0.36, 0.38], frame: '#ece6da' },
+  school: { wall: '#f1dfb0', glass: '#2f4a61', win: [0.12, 0.35, 0.76, 0.4], frame: '#fff8e8', band: '#c9822b' },
+  hospital: { wall: '#f6f7f8', glass: '#5d8fb5', win: [0.08, 0.38, 0.84, 0.32], frame: '#ffffff', band: '#2f9e8f' },
+  office: { wall: '#9fb4c6', glass: '#47667f', win: [0.04, 0.12, 0.92, 0.78], frame: '#d5dde4' },
+  retail: { wall: '#e7e2d8', glass: '#3a5266', win: [0.05, 0.62, 0.9, 0.12], frame: '#f5f2ec', band: '#2f7d4f' },
+  fuel: { wall: '#f4f4f2', glass: '#3a5266', win: [0.2, 0.35, 0.6, 0.38], frame: '#ffffff', band: '#d6262b' },
+}
+
+const facadeCache = {}
+export function facadeTexture(style = 'home') {
+  if (facadeCache[style]) return facadeCache[style]
+  const f = FACADES[style] ?? FACADES.home
+  const t = canvas(256, 256, (g, w, h) => {
+    g.fillStyle = f.wall
+    g.fillRect(0, 0, w, h)
+    if (f.band) {
+      g.fillStyle = f.band
+      g.fillRect(0, 0, w, h * 0.07) // floor band (canvas top = top of the storey)
+    }
+    const [x, y, ww, wh] = f.win
+    g.fillStyle = f.frame
+    g.fillRect(w * x - 4, h * y - 4, w * ww + 8, h * wh + 8)
+    const grad = g.createLinearGradient(0, h * y, 0, h * (y + wh))
+    grad.addColorStop(0, f.glass)
+    grad.addColorStop(1, '#1b2733')
+    g.fillStyle = grad
+    g.fillRect(w * x, h * y, w * ww, h * wh)
+    g.fillStyle = 'rgba(255,255,255,.18)' // sky reflection
+    g.fillRect(w * x, h * y, w * ww * 0.35, h * wh)
+    if (style === 'office') {
+      g.fillStyle = f.frame
+      for (let i = 1; i < 4; i++) g.fillRect(w * (x + (ww * i) / 4) - 2, h * y, 4, h * wh)
+    }
+  })
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(1 / 3, 1 / 3)
+  facadeCache[style] = t
+  return t
+}
+
+/** A shop-sign texture with the building's name. */
+export function signTexture(text, color = '#1e3a5f') {
+  return canvas(1024, 160, (g, w, h) => {
+    g.fillStyle = color
+    g.fillRect(0, 0, w, h)
+    g.fillStyle = '#ffffff'
+    g.font = '600 82px Inter, system-ui, sans-serif'
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    let size = 82
+    while (g.measureText(text).width > w - 60 && size > 30) {
+      size -= 4
+      g.font = `600 ${size}px Inter, system-ui, sans-serif`
+    }
+    g.fillText(text, w / 2, h / 2 + 4)
+  })
+}

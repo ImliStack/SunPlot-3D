@@ -268,7 +268,7 @@ function terrace(p, size, cap, out) {
   out.obstacles = obstacles
   out.L = bb.x1 - bb.x0
   out.W = bb.z1 - bb.z0
-  out.building = { kind: 'terrace', H, parapet: 0.9, ring }
+  out.building = { kind: 'terrace', H, parapet: 0.9, ring, style: t.style ?? 'home', name: t.name ?? '' }
   out.neighbours = t.neighbours ?? []
   out.terrace = t
   const rects = obstacles.map((ob) => grown(ob, 0.6))

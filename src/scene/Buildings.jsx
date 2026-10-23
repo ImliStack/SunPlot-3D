@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { OVERHANG, STOREY } from '../layout.js'
-import { textures } from './textures.js'
+import { textures, facadeTexture, signTexture } from './textures.js'
 import { Face, Strip, Walls, Windows, materials, repeated } from './parts.jsx'
 
 const RAD = Math.PI / 180
@@ -391,10 +391,46 @@ function prism(ring, h) {
   return g
 }
 
+const SIGN_COLORS = { school: '#b5651d', hospital: '#2f9e8f', office: '#1e3a5f', retail: '#2f7d4f', fuel: '#d6262b' }
+
+/** A name board above the parapet on the longest wall, facing outwards. */
+function NameBoard({ ring, top, name, style }) {
+  const sign = useMemo(() => {
+    let best = 0
+    let len = 0
+    ring.forEach((a, i) => {
+      const b = ring[(i + 1) % ring.length]
+      const l = Math.hypot(b[0] - a[0], b[1] - a[1])
+      if (l > len) { len = l; best = i }
+    })
+    const a = ring[best]
+    const b = ring[(best + 1) % ring.length]
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+    const c = ring.reduce((s, p) => [s[0] + p[0] / ring.length, s[1] + p[1] / ring.length], [0, 0])
+    let n = [-(b[1] - a[1]) / len, (b[0] - a[0]) / len]
+    if ((mid[0] - c[0]) * n[0] + (mid[1] - c[1]) * n[1] < 0) n = [-n[0], -n[1]]
+    const width = Math.min(len * 0.6, 14)
+    return { pos: [mid[0] + n[0] * 0.15, top + 0.75, mid[1] + n[1] * 0.15], ry: Math.atan2(n[0], n[1]), width }
+  }, [ring, top])
+  const tex = useMemo(() => signTexture(name, SIGN_COLORS[style] ?? '#1e3a5f'), [name, style])
+  return (
+    <group position={sign.pos} rotation-y={sign.ry}>
+      <mesh castShadow><boxGeometry args={[sign.width + 0.2, 1.3, 0.12]} /><meshStandardMaterial color="#2a2f36" roughness={0.5} /></mesh>
+      <mesh position={[0, 0, 0.07]}><planeGeometry args={[sign.width, (sign.width * 160) / 1024]} /><meshStandardMaterial map={tex} emissive="#ffffff" emissiveMap={tex} emissiveIntensity={0.25} /></mesh>
+    </group>
+  )
+}
+
+/** Extruded walls with a per-floor facade on the sides and plain concrete on the caps. */
+function walledMaterials(style, cap) {
+  const side = new THREE.MeshStandardMaterial({ map: facadeTexture(style), roughness: style === 'office' ? 0.3 : 0.85, metalness: style === 'office' ? 0.3 : 0 })
+  return [cap, side] // ExtrudeGeometry groups: 0 = caps, 1 = sides
+}
+
 /** Surveyed terrace house: walls of any outline, parapet, and the neighbouring blocks around it. */
 export function TerraceHouse({ layout }) {
   const m = materials()
-  const { ring, H, parapet } = layout.building
+  const { ring, H, parapet, style, name } = layout.building
   const walls = useMemo(() => prism(ring, H), [ring, H])
   const roof = useMemo(() => {
     const g = new THREE.ShapeGeometry(new THREE.Shape(ring.map(([x, z]) => new THREE.Vector2(x, -z))))
@@ -402,11 +438,8 @@ export function TerraceHouse({ layout }) {
     return g
   }, [ring])
   const neighbours = useMemo(() => layout.neighbours.map((n) => ({ g: prism(n.ring, n.h), h: n.h })), [layout.neighbours])
-  const wall = useMemo(() => {
-    const mat = m.wall.clone()
-    mat.map = repeated(textures().plaster, 4, 2)
-    return mat
-  }, [m])
+  const wall = useMemo(() => walledMaterials(style, m.concrete), [style, m])
+  const nWall = useMemo(() => walledMaterials('neighbour', m.neighbour), [m])
   return (
     <group>
       <mesh geometry={walls} material={wall} castShadow receiveShadow />
@@ -415,8 +448,9 @@ export function TerraceHouse({ layout }) {
         const b = ring[(i + 1) % ring.length]
         return <Strip key={i} a={[a[0], H + parapet / 2, a[1]]} b={[b[0], H + parapet / 2, b[1]]} w={0.22} h={parapet} material={m.wallFlat} />
       })}
+      {name && <NameBoard ring={ring} top={H + parapet} name={name} style={style} />}
       {neighbours.map((n, i) => (
-        <mesh key={`n${i}`} geometry={n.g} material={m.neighbour} castShadow receiveShadow />
+        <mesh key={`n${i}`} geometry={n.g} material={nWall} castShadow receiveShadow />
       ))}
     </group>
   )

@@ -41,6 +41,20 @@ js "const s = window.__solar.getState().survey; const r = s.ring; const x = r.re
 cap 6
 js "[...document.querySelectorAll('button')].find(x => x.textContent.includes('Open this design'))?.click(); 'ok'"
 cap 5
+# Public buildings: hospitals, schools, malls… near the centre, pick a hospital, 3D map, studio.
+js "window.__solar.getState().setMode('survey'); window.__solar.getState().patchSurvey({ center: [75.8073, 26.8540], view: [75.8073, 26.8540], address: 'Malviya Nagar, Jaipur', state: 'Rajasthan', ring: null, poiCats: ['hospital', 'mall', 'fuel', 'supermarket', 'school', 'bank'] }); 'ok'"
+cap 4
+for k in $(seq 1 15); do
+  c=$(b js "window.__solar.getState().survey.poiList.length" 2>/dev/null | tail -1); [ "${c:-0}" -gt 5 ] 2>/dev/null && break
+  b js "const m = window.__surveyMap; if (m && !m.isMoving()) m.jumpTo({ center: [75.8073, 26.8540], zoom: 15.5 }); 'ok'" >/dev/null; cap 1
+done
+cap 2
+js "const s = window.__solar.getState(); s.selectPlace(s.survey.poiList.find(x => x.name === 'Integral Hospital') ?? s.survey.poiList.find(x => x.cat === 'hospital')); 'ok'"
+cap 7
+js "window.__solar.getState().patchSurvey({ map3d: true }); 'ok'"
+cap 5
+js "[...document.querySelectorAll('button')].find(x => x.textContent.includes('Open this design'))?.click(); 'ok'"
+cap 5
 secs=$(( $(date +%s) - start ))
 fps=$(python3 -c "print(max(4, round($i / $secs, 2)))")
 echo "frames $i over ${secs}s → ${fps} fps"
