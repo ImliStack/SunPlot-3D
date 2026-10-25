@@ -2,15 +2,16 @@
 // Loaded on demand (dynamic import) so the app bundle does not carry jsPDF.
 
 import { jsPDF } from 'jspdf'
-import { PANELS, SITES, CLIMATES } from './presets.js'
+import { SITES, CLIMATES, panelOf } from './presets.js'
 import { MONTHS } from './solar.js'
+import { sldSvg } from './electrical.js'
 
 const W = 210
 const H = 297
 const M = 16 // page margin
 const CW = W - 2 * M // content width
 
-const NAVY = [30, 58, 95]
+let NAVY = [30, 58, 95] // the brand colour when the installer sets one
 const SUN = [217, 144, 15]
 const INK = [28, 31, 36]
 const MUTED = [115, 119, 129]
@@ -19,9 +20,6 @@ const SOFT = [246, 243, 236]
 const GREEN = [63, 154, 92]
 const RED = [229, 72, 77]
 
-const DEGRADE = 0.005
-const ESCALATE = 0.03 // tariff growth per year, for the cash-flow chart
-const DC_AC = 1.2
 const LETTERS = 'ABCDEFGH'
 
 // Helvetica (WinAnsi) has no ₹, CO₂ subscript, ≈ or true minus — spell them out.
@@ -34,6 +32,30 @@ const num = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maxi
 const energy = (kwh) => (kwh >= 1e6 ? `${num(kwh / 1e6, 2)} GWh` : kwh >= 1e4 ? `${num(kwh / 1e3, 1)} MWh` : `${num(kwh)} kWh`)
 const power = (kw) => (kw >= 1000 ? `${num(kw / 1000, 2)} MWp` : `${num(kw, 1)} kWp`)
 const bearing = (az) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(az / 45) % 8]
+
+const hexRgb = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '')
+  return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null
+}
+
+/** SVG markup to a PNG data URL at `scale` × its own size. */
+function svgPng(svg, scale = 2) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = img.width * scale
+      c.height = img.height * scale
+      const g = c.getContext('2d')
+      g.fillStyle = '#fff'
+      g.fillRect(0, 0, c.width, c.height)
+      g.drawImage(img, 0, 0, c.width, c.height)
+      resolve(c.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve(null)
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  })
+}
 
 /** Crop a data URL to an aspect ratio (centre), so photos fill their frames. */
 function crop(url, aspect) {
@@ -57,9 +79,18 @@ function crop(url, aspect) {
 
 export async function buildProposal(d) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+  const brand = d.brand ?? {}
+  NAVY = hexRgb(brand.color) ?? [30, 58, 95]
   const cur = CURRENCY[d.params.cur] ?? d.params.cur
-  const money = (n) => `${cur}${n >= 1e7 ? `${num(n / 1e6, 2)} M` : num(n)}`
-  const m = PANELS[d.params.panel]
+  const money = (n) => {
+    const a = Math.abs(n)
+    const v = d.params.cur === '₹' ? (a >= 1e7 ? `${num(a / 1e7, 2)} Cr` : a >= 1e5 ? `${num(a / 1e5, 2)} L` : num(a)) : a >= 1e6 ? `${num(a / 1e6, 2)} M` : num(a)
+    return `${n < 0 ? '-' : ''}${cur}${v}`
+  }
+  const E = d.eng?.e
+  const F = d.eng?.f
+  const p = d.params
+  const m = panelOf(d.params)
 
   const font = (size, style = 'normal', color = INK) => {
     doc.setFont('helvetica', style)
@@ -154,6 +185,12 @@ export async function buildProposal(d) {
     })
     return y + 2
   }
+  /** Start a continuation page when `need` mm will not fit below `y`. */
+  const room = (y, need, title, sub) => {
+    if (y + need <= H - 18) return y
+    doc.addPage()
+    return heading(title, sub)
+  }
   const para = (s, y, size = 8.5, color = INK, width = CW) => {
     font(size, 'normal', color)
     const lines = doc.splitTextToSize(clean(s), width)
@@ -164,9 +201,6 @@ export async function buildProposal(d) {
   const L = d.layout
   const Y = d.yield
   const measured = Y.source === 'measured'
-  const cost = L.kwp * 1000 * d.params.cost
-  const savings = Y.annual * d.params.tariff
-  const payback = savings ? cost / savings : 0
   const cuf = L.kwp ? Y.annual / (L.kwp * 8760) : 0
   const place = d.params.placeName || `${num(d.params.lat, 2)}, ${num(d.params.lon, 2)}`
   const dateStr = d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -177,7 +211,7 @@ export async function buildProposal(d) {
   fill(SUN)
   doc.rect(0, 64, W, 1.5, 'F')
   font(10, 'bold', [242, 179, 61])
-  text('SOLAR PV PROPOSAL', M, 20, { charSpace: 0.8 })
+  text(brand.company ? `${brand.company.toUpperCase()} · SOLAR PV PROPOSAL` : 'SOLAR PV PROPOSAL', M, 20, { charSpace: 0.8 })
   font(24, 'bold', [255, 255, 255])
   text(`${power(L.kwp)} ${SITES[d.params.site].label.toLowerCase()}`, M, 33)
   font(11, 'normal', [210, 220, 235])
@@ -198,10 +232,10 @@ export async function buildProposal(d) {
     [`${num(Y.specific)} kWh/kWp`, 'specific yield'],
   ], y)
   y = tiles([
-    [money(cost), 'installed cost'],
-    [money(savings), 'saved per year'],
-    [payback ? `${num(payback, 1)} yr` : '-', 'simple payback'],
-    [`${num((Y.annual * d.params.co2) / 1000, 1)} t`, 'CO2 avoided / yr'],
+    [money(F.net), F.subsidy ? 'cost after subsidy' : 'installed cost'],
+    [money(F.rows[0].savings), 'saved in year 1'],
+    [F.payback != null ? `${num(F.payback, 1)} yr` : '> 25 yr', 'payback'],
+    [F.irr != null ? `${num(F.irr * 100, 1)} %` : '-', 'IRR over 25 years'],
   ], y)
   y = para(
     `${num(L.count)} x ${m.watt} W modules (${num(L.moduleArea)} m²) are laid out over ${L.arrays.filter((a) => a.count).length} array${L.arrays.filter((a) => a.count).length === 1 ? '' : 's'}, ` +
@@ -257,9 +291,11 @@ export async function buildProposal(d) {
     ['Site', SITES[d.params.site].label],
     ['Module', `${m.label}`],
     ['', m.note],
-    ['Orientation', d.params.portrait ? 'Portrait' : 'Landscape'],
+    ['Orientation', m.tile ? 'Tiles, long side along the eave' : d.params.portrait ? 'Portrait' : 'Landscape'],
     ['DC capacity', power(L.kwp)],
-    ['AC inverter', `${power(L.kwp / DC_AC).replace('p', '')} (DC:AC ${DC_AC})`],
+    ['Inverter', E ? `${E.inverter.n} x ${E.inverter.label} (DC:AC ${num(E.dcac, 2)})` : '-'],
+    ...(p.tiles && m.tile ? [['Mounting', 'Roof-integrated solar tiles (replace the roofing)']] : []),
+    ...(L.rowInfo?.eastWest ? [['Racking', 'East-west tents at 10 deg']] : []),
     ['Module area', `${num(L.moduleArea)} m² (${num(L.coverage * 100)} % of surface)`],
     ['Weight', `${num((L.count * m.kg) / 1000, 2)} t${L.load ? ` · ${num(L.load, 1)} kg/m² dead load` : ''}`],
     ...(L.rowInfo ? [['Row pitch', `${num(L.rowInfo.pitch, 2)} m (winter-noon sun ${num(L.rowInfo.sun, 1)}°)`]] : []),
@@ -403,30 +439,88 @@ export async function buildProposal(d) {
     }
   }
 
+  // ─── Electrical design ───
+  if (E) {
+    doc.addPage()
+    y = heading('Electrical design', `${E.inverter.n} x ${E.inverter.label}`)
+    y = tiles([
+      [`${E.strings} x ${E.L}`, 'strings x modules'],
+      [`${num(E.vocCold * E.L)} V`, `string Voc at ${E.temps.low} °C`],
+      [num(E.dcac, 2), 'DC : AC ratio'],
+      [E.ok ? 'Pass' : 'Check', 'string limits'],
+    ], y, 15)
+    const sld = await svgPng(sldSvg(E), 2)
+    if (sld) {
+      const w = 112
+      const h = (w * 318) / 360
+      doc.addImage(sld, 'PNG', M, y, w, h)
+      // Checks beside the diagram.
+      let cy = y + 3
+      const cx = M + w + 6
+      font(7, 'bold', MUTED)
+      text('CHECKS', cx, cy)
+      cy += 5
+      E.checks.forEach((c) => {
+        fill(c.ok ? GREEN : RED)
+        doc.circle(cx + 1, cy - 1, 0.9, 'F')
+        font(7.5, 'normal', INK)
+        const lines = doc.splitTextToSize(clean(c.label), W - M - cx - 4)
+        doc.text(lines, cx + 4, cy)
+        cy += lines.length * 3.2
+        font(7.5, 'bold', c.ok ? INK : RED)
+        text(`${c.value}  (${c.limit})`, cx + 4, cy)
+        cy += 5
+      })
+      y += Math.max(h, cy - y) + 4
+    }
+    y = h2('Cables and protection', y)
+    y = table(['Item', 'Size / rating', 'Note'], [
+      ['DC string cable', `${E.dc.mm2} mm² PV`, `${num(E.runs.dc)} m run, ${num(E.dc.drop * 100, 2)} % drop`],
+      ['AC cable', `${E.ac.mm2} mm² Cu`, `${num(E.runs.ac)} m run, ${num(E.ac.drop * 100, 2)} % drop, ${num(E.iAc, 1)} A`],
+      ['DC isolator', `${E.protection.dcIsolator.v} V / ${E.protection.dcIsolator.a} A`, `SPD ${E.protection.dcSpd}`],
+      ['AC breaker', `${E.protection.acBreaker} A${E.protection.mainBreaker ? ` (+ ${E.protection.mainBreaker} A main)` : ''}`, `SPD ${E.protection.acSpd}`],
+      ...(E.protection.stringFuse ? [['String fuses', `${E.protection.stringFuse} A gPV`, '3+ strings in parallel']] : []),
+      ['Earthing', `${E.protection.earthing} pits + LA`, 'DC, AC and lightning arrester'],
+      ...(E.battery ? [['Battery', `${num(E.battery.nominal, 1)} kWh LFP`, `${num(p.battLoad, 1)} kW for ${num(p.battHours, 1)} h backup`]] : []),
+    ], y, [40, 50, 88])
+    y = room(y, E.bom.length * 6.5 + 14, 'Bill of materials', `${power(L.kwp)} · ${place}`)
+    y = h2('Bill of materials', y)
+    y = table(['Item', 'Qty'], E.bom.map((b) => [b.item, `${num(b.qty)} ${b.unit}`]), y, [150, 28])
+    y = room(y, 12, 'Electrical design', 'continued')
+    para('Concept design to IEC 62548 / MNRE practice: string limits from the module datasheet and the site\'s 10-year temperature extremes, cables by ampacity and voltage drop. A licensed electrical engineer must approve the final design.', y, 7.5, MUTED)
+  }
+
   // ─── Page 5: financials ───
   doc.addPage()
-  y = heading('Financials', `${cur.trim()} · ${num(d.params.cost, 2)} per Wp · ${num(d.params.tariff, 2)} per kWh`)
-  const flows = []
-  let cum = -cost
-  for (let k = 0; k < 25; k++) {
-    const e = Y.annual * (1 - DEGRADE) ** k
-    cum += e * d.params.tariff * (1 + ESCALATE) ** k
-    flows.push(cum)
-  }
-  const life = Array.from({ length: 25 }, (_, k) => Y.annual * (1 - DEGRADE) ** k).reduce((a, b) => a + b, 0)
+  y = heading('Financials', `${cur.trim()} · ${num(p.cost, 2)} per Wp · ${num(p.tariff, 2)} per kWh, +${num(p.escalation, 1)} %/yr`)
   y = tiles([
-    [money(cost), 'installed cost'],
-    [money(savings), 'first-year savings'],
-    [payback ? `${num(payback, 1)} yr` : '-', 'simple payback'],
-    [money(flows[24] + cost), '25-year savings'],
+    [money(F.gross), 'system cost'],
+    [F.subsidy ? `-${money(F.subsidy)}` : money(0), 'subsidy / incentive'],
+    [money(F.net), 'net cost'],
+    [F.payback != null ? `${num(F.payback, 1)} yr` : '> 25 yr', 'payback'],
   ], y)
-  y = h2(`Cumulative cash position over 25 years (tariff +${ESCALATE * 100} %/yr, output -${DEGRADE * 100} %/yr)`, y)
+  y = tiles([
+    [F.irr != null ? `${num(F.irr * 100, 1)} %` : '-', 'IRR (25 yr)'],
+    [money(F.npv), `NPV at ${num(p.discount, 1)} %`],
+    [`${cur}${num(F.lcoe, 2)}`, 'LCOE per kWh'],
+    [money(F.gain25), '25-year net gain'],
+  ], y, 15)
+  if (F.loan > 0) {
+    y = tiles([
+      [money(F.down), 'down payment'],
+      [money(F.loan), `loan at ${num(p.loanRate, 2)} %`],
+      [`${money(F.emi)}/mo`, `EMI for ${p.loanYears} yr`],
+      [money(F.rows[0].savings / 12), 'saved per month, yr 1'],
+    ], y, 15)
+  }
+  y = h2('Cumulative cash position over 25 years', y)
   {
-    const hh = 52
+    const flows = [-F.down, ...F.rows.map((r) => r.cumulative)]
+    const hh = 46
     const mn = Math.min(0, ...flows)
     const mx = Math.max(0, ...flows)
     const zy = y + hh - ((0 - mn) / (mx - mn)) * hh
-    const step = CW / 25
+    const step = CW / flows.length
     stroke(LINE)
     doc.line(M, zy, M + CW, zy)
     flows.forEach((v, k) => {
@@ -434,23 +528,30 @@ export async function buildProposal(d) {
       const bot = y + hh - ((Math.min(v, 0) - mn) / (mx - mn)) * hh
       fill(v < 0 ? RED : GREEN)
       doc.rect(M + k * step + step * 0.15, top, step * 0.7, Math.max(0.3, bot - top), 'F')
-      if (k % 5 === 4 || k === 0) {
+      if (k % 5 === 0) {
         font(6.5, 'normal', MUTED)
-        text(`yr ${k + 1}`, M + k * step + step / 2, y + hh + 4, { align: 'center' })
+        text(`yr ${k}`, M + k * step + step / 2, y + hh + 4, { align: 'center' })
       }
     })
-    y += hh + 10
+    y += hh + 9
   }
+  y = table(['Year', 'Energy', 'Tariff', 'Savings', 'O&M', ...(F.loan > 0 ? ['Loan'] : []), 'Cumulative'],
+    F.rows.filter((r) => [1, 2, 3, 5, 10, 12, 15, 20, 25].includes(r.year)).map((r) => [
+      String(r.year), energy(r.kwh), num(r.tariff, 2), money(r.savings), money(r.om), ...(F.loan > 0 ? [money(r.loan)] : []), money(r.cumulative),
+    ]), y, F.loan > 0 ? [14, 26, 18, 28, 24, 26, 42] : [16, 30, 22, 34, 30, 46])
+  y = h2('For the planet', y)
   y = tiles([
-    [energy(life), '25-year energy'],
-    [`${num((Y.annual * d.params.co2) / 1000, 1)} t`, 'CO2 avoided per year'],
-    [`${num((life * d.params.co2) / 1000)} t`, 'CO2 avoided, 25 yr'],
-    [`${cur}${num(cost / Math.max(1, life), 2)}`, 'cost per kWh (no O&M, no finance)'],
+    [`${num(F.env.co2Year, 1)} t`, 'CO2 avoided per year'],
+    [`${num(F.env.co2Life)} t`, 'CO2 avoided, 25 yr'],
+    [num(F.env.trees), "trees' worth of CO2 a year"],
+    [`${num(F.env.coal, 1)} t`, 'coal not burnt a year'],
   ], y, 15)
 
+  y = room(y, 70, 'Assumptions & sources', place)
   y = h2('Assumptions & sources', y + 2)
   const assumptions = [
-    `Modules: ${m.label}, ${m.note}. Inverter sized at DC:AC ${DC_AC}. Linear degradation ${DEGRADE * 100} %/yr.`,
+    `Modules: ${m.label}, ${m.note}. ${E ? `Inverters: ${E.inverter.n} x ${E.inverter.label}, DC:AC ${num(E.dcac, 2)}.` : ''} Output -1 % in year 2 then -0.4 %/yr.`,
+    `Money: tariff ${num(p.tariff, 2)} rising ${num(p.escalation, 1)} %/yr${p.useKwh ? `; ${num(p.useKwh)} kWh/month used on site, surplus at ${num(p.exportRate || p.tariff * 0.4, 2)}/kWh` : '; all solar energy valued at the tariff (net metering)'}; O&M ${num(p.omPct, 1)} % of cost a year rising 5 %/yr; inverter replacement (~10 % of cost) in year 12; discount rate ${num(p.discount, 1)} %.`,
     measured
       ? 'Weather: NASA POWER monthly means (CERES / MERRA-2) for the last ten complete years. Horizontal irradiation split into beam and diffuse (Collares-Pereira & Rabl) and transposed per plane (isotropic sky, albedo 0.2). Temperature loss -0.35 %/°C above 25 °C cell; 14 % system losses.'
       : `Weather: ASHRAE clear-sky model x ${CLIMATES[d.params.climate].label.toLowerCase()} factor ${CLIMATES[d.params.climate].k}; performance ratio ${Y.pr}.`,
@@ -469,7 +570,7 @@ export async function buildProposal(d) {
     stroke(LINE)
     doc.line(M, H - 12, W - M, H - 12)
     font(7, 'normal', MUTED)
-    text(`SunPlot 3D · ${place} · ${power(L.kwp)} · ${dateStr}`, M, H - 7)
+    text(brand.company ? `${brand.company}${brand.phone ? ` · ${brand.phone}` : ''}${brand.email ? ` · ${brand.email}` : ''} · ${power(L.kwp)} · ${dateStr}` : `SunPlot 3D · ${place} · ${power(L.kwp)} · ${dateStr}`, M, H - 7)
     text(`${i} / ${pages}`, W - M, H - 7, { align: 'right' })
   }
 

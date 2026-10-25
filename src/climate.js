@@ -6,12 +6,12 @@ import { useSolar } from './store.js'
 // for the last ten complete years. https://power.larc.nasa.gov/docs/services/api/temporal/monthly/
 
 const API = 'https://power.larc.nasa.gov/api/temporal/monthly/point'
-const PARAMS = ['ALLSKY_SFC_SW_DWN', 'CLRSKY_SFC_SW_DWN', 'T2M', 'T2M_MAX', 'WS10M', 'PRECTOTCORR', 'ALLSKY_KT', 'PRECSNOLAND', 'SNODP']
+const PARAMS = ['ALLSKY_SFC_SW_DWN', 'CLRSKY_SFC_SW_DWN', 'T2M', 'T2M_MAX', 'T2M_MIN', 'WS10M', 'PRECTOTCORR', 'ALLSKY_KT', 'PRECSNOLAND', 'SNODP']
 export const YEARS = 10
 const DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 const memory = new Map()
-const cacheKey = (lat, lon) => `power:v2:${lat.toFixed(1)},${lon.toFixed(1)}`
+const cacheKey = (lat, lon) => `power:v3:${lat.toFixed(1)},${lon.toFixed(1)}`
 
 function readCache(key) {
   if (memory.has(key)) return memory.get(key)
@@ -33,7 +33,7 @@ function writeCache(key, data) {
 
 /**
  * Normalise the POWER response into
- * { years: [2016…], ghi[y][m], clr[y][m], t[y][m], tmax[y][m], wind[y][m], rain[y][m], kt[y][m] }
+ * { years: [2016…], ghi[y][m], clr[y][m], t[y][m], tmax[y][m], tmin[y][m], wind[y][m], rain[y][m], kt[y][m] }
  * with daily means per month (kWh/m²/day, °C, m/s, mm/day). Missing values (−999) become null.
  */
 function parse(json, years) {
@@ -49,6 +49,7 @@ function parse(json, years) {
     clr: pick('CLRSKY_SFC_SW_DWN'),
     t: pick('T2M'),
     tmax: pick('T2M_MAX'),
+    tmin: pick('T2M_MIN'),
     wind: pick('WS10M'),
     rain: pick('PRECTOTCORR'),
     kt: pick('ALLSKY_KT'),
@@ -93,6 +94,11 @@ const mean = (xs) => {
 }
 
 /** Monthly means across the years and the yearly totals, for charts and insights. */
+const extreme = (grid, f) => {
+  const v = (grid ?? []).flat().filter((x) => x != null)
+  return v.length ? f(...v) : null
+}
+
 export function summarise(d) {
   const monthly = DAYS.map((_, m) => ({
     ghi: mean(d.ghi.map((y) => y[m])),
@@ -120,6 +126,9 @@ export function summarise(d) {
   return {
     monthly, yearly, annualGhi, variability: sd / annualGhi,
     tAvg: mean(monthly.map((m) => m.t)), tHot: Math.max(...monthly.map((m) => m.tmax)),
+    // Extremes over the ten years, for string voltage limits (cold Voc, hot Vmp).
+    tRecordLow: extreme(d.tmin, Math.min) ?? Math.min(...monthly.map((m) => m.t)) - 12,
+    tRecordHigh: extreme(d.tmax, Math.max) ?? Math.max(...monthly.map((m) => m.tmax)),
     rain: mean(yearly.map((y) => y.rain)), wind: mean(monthly.map((m) => m.wind)),
     kt, peakSunHours: annualGhi / 365,
     snow: mean(yearly.map((y) => y.snow)),

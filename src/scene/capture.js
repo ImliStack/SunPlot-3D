@@ -7,6 +7,9 @@ let renderer = null
 /** The camera controls, e.g. to pause orbiting during a paint stroke. */
 export const getControls = () => rig?.controls ?? null
 
+/** gl, scene and camera of the 3D view, for exports. */
+export const getRenderer = () => renderer
+
 /** Called by <Rig>: the camera controls plus its preset-view function. */
 export function registerRig(api) {
   rig = api

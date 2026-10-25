@@ -2,11 +2,15 @@ import { useMemo } from 'react'
 import { useSolar } from './store.js'
 import { computeLayout, selectModules } from './layout.js'
 import { estimateYield, estimateYieldMeasured, PERFORMANCE_RATIO } from './solar.js'
-import { CLIMATES } from './presets.js'
+import { CLIMATES, panelOf } from './presets.js'
+import { electricalDesign } from './electrical.js'
+import { finance } from './finance.js'
 
 // The sun slider and day animation change `hour` / `day` every frame; the layout and yield
 // don't depend on them, so both are keyed on everything else.
-const VIEW_KEYS = new Set(['day', 'hour', 'surroundings', 'closeTrees', 'placeName', 'lon', 'cur', 'cost', 'tariff', 'co2', 'climate', 'cleanDays', 'weather'])
+const VIEW_KEYS = new Set(['day', 'hour', 'surroundings', 'closeTrees', 'placeName', 'lon', 'cur', 'cost', 'tariff', 'co2', 'climate', 'cleanDays', 'weather',
+  'inverter', 'invCount', 'dcRun', 'acRun', 'subsidy', 'escalation', 'discount', 'omPct', 'useKwh', 'exportRate',
+  'loanShare', 'loanRate', 'loanYears', 'battLoad', 'battHours', 'battPrice'])
 export const designKey = (p) => Object.entries(p).filter(([k]) => !VIEW_KEYS.has(k)).map(([, v]) => (v && typeof v === 'object' ? JSON.stringify(v) : v)).join('|')
 
 /** Every array the site could take. In click-to-install mode that includes every roof plane. */
@@ -58,4 +62,25 @@ export function useYield(layout) {
     const annual = months.reduce((a, b) => a + b, 0)
     return { ...base, months, perArray, annual, shadingLoss, source: 'model', pr: PERFORMANCE_RATIO, specific: layout.kwp ? annual / layout.kwp : 0 }
   }, [layout, lat, cls, data, shade, cleanDays])
+}
+
+/** Air temperature extremes for string sizing: measured when NASA POWER is in, else a latitude guess. */
+export function siteTemps(p, climate) {
+  const s = climate.status === 'ready' ? climate.summary : null
+  if (s?.tRecordLow != null) return { low: Math.floor(s.tRecordLow), high: Math.ceil(s.tRecordHigh), measured: true }
+  const lat = Math.abs(p.lat)
+  return { low: Math.round(Math.max(-30, 18 - 0.9 * lat)), high: lat < 35 ? 45 : 36, measured: false }
+}
+
+/** Electrical concept + 25-year finance for the current design. */
+export function useEngineering(layout, y) {
+  const p = useSolar((s) => s.params)
+  const climate = useSolar((s) => s.climate)
+  return useMemo(() => {
+    const temps = siteTemps(p, climate)
+    const heightM = (['gable', 'hip', 'lshape', 'shed', 'flat', 'airport', 'terrace'].includes(p.site) ? p.floors * 3 : 3) + 2
+    const e = electricalDesign({ layout, module: panelOf(p), temps, p, heightM })
+    const f = finance({ annual: y.annual, kwp: layout.kwp, p, battery: e?.battery })
+    return { e, f, temps }
+  }, [layout, y.annual, p, climate])
 }

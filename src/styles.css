@@ -413,7 +413,8 @@ select, .text {
   position: sticky; top: -12px; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
   padding: 3px; margin: -2px 0 14px; border-radius: 12px; background: var(--soft);
 }
-.tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; border-radius: 9px; font-size: 13px; color: var(--muted); }
+.tabs { grid-template-columns: repeat(5, 1fr); }
+.tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 2px; border-radius: 9px; font-size: 11.5px; color: var(--muted); min-width: 0; }
 .tabs button.is-on { background: var(--paper); color: var(--ink); box-shadow: var(--shadow); }
 .card h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .card h3.sub { margin-top: 16px; }
@@ -629,3 +630,37 @@ select, .text {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Electrical + money tabs */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row2 select { width: 100%; }
+.inline { display: flex; gap: 6px; align-items: center; }
+.inline .text { flex: 1; min-width: 0; }
+.badge.is-warn { background: color-mix(in srgb, #e5484d 14%, transparent); color: #c93a3f; }
+.checks-table td:first-child { width: 14px; }
+.checks-table tr.is-bad td { color: #c93a3f; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3f9a5c; }
+.dot.bad { background: #e5484d; }
+.sld { margin-top: 6px; overflow-x: auto; }
+.sld svg { width: 100%; height: auto; display: block; }
+.checks-table td b { white-space: nowrap; }
+.cash { display: block; width: 100%; height: 120px; margin-top: 8px; }
+.cash .neg, .legend .sw.neg { fill: #e5484d; background: #e5484d; opacity: .85; }
+.cash .pos, .legend .sw.pos { fill: #3f9a5c; background: #3f9a5c; }
+.cash .zero { stroke: var(--muted); stroke-width: 1; opacity: .6; }
+.cashflow tr.is-neg td:last-child { color: #c93a3f; }
+.cashflow td, .cashflow th { white-space: nowrap; }
+
+.export-pop { width: 290px; }
+.export-list { list-style: none; margin: 8px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.export-list button { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 8px; border-radius: 9px; text-align: left; color: var(--ink); }
+.export-list button:hover:not(:disabled) { background: var(--soft); }
+.export-list button:disabled { opacity: .5; }
+.export-list span { display: flex; flex-direction: column; gap: 1px; }
+.export-list b { font-weight: 500; font-size: 13px; }
+.export-list small { color: var(--muted); font-size: 11.5px; }
+.export-list .icon { margin-top: 2px; color: var(--accent, #d9902a); }
+
+.brand-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 6px; }
+.brand-fields .field:first-child { grid-column: 1 / -1; }
+.color-field input[type=color] { width: 100%; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); padding: 2px; }

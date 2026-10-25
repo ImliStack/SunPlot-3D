@@ -4,7 +4,7 @@
 // Coordinates are in the site's own frame (metres): +x along the building length, +y up, and
 // +z the direction the main roof plane / array faces. The scene rotates this frame to `azimuth`.
 
-import { PANELS, SHOWS, BAY } from './presets.js'
+import { SHOWS, BAY, panelOf, portraitOf, usesTiles } from './presets.js'
 import { winterNoonAltitude } from './solar.js'
 import { area, bbox, inside, edgeDistance } from './survey/geo.js'
 
@@ -37,13 +37,16 @@ export function siteInputs(p) {
     bothFaces: shown('bothFaces') && p.bothFaces,
     chimney: shown('chimney') && p.chimney,
     vents: shown('vents') ? p.vents : 0,
+    eastWest: shown('eastWest') && p.eastWest,
+    // Solar tiles are the roofing itself: they run close to the edges (ridge vent and flashing only).
+    ...(usesTiles(p) ? { edge: Math.min(p.edge, 0.2), ridge: Math.min(p.ridge, 0.3) } : {}),
   }
 }
 
 /** Module footprint on its plane: `du` across the row, `dv` up the slope. */
 function moduleSize(p) {
-  const m = PANELS[p.panel]
-  return p.portrait ? { du: m.w, dv: m.h, m } : { du: m.h, dv: m.w, m }
+  const m = panelOf(p)
+  return portraitOf(p) ? { du: m.w, dv: m.h, m } : { du: m.h, dv: m.w, m }
 }
 
 /**
@@ -166,6 +169,66 @@ function packRows(p, size, budget, { base, clearance, tilt, xSpan, zFront, zBack
   return { panels, posts, rails, rows, cols, pitch, depth, sun, aisle: pitch - depth }
 }
 
+const EW_TILT = 10 // ° typical for back-to-back east-west systems
+const EW_AISLE = 0.6 // m maintenance aisle after every second tent
+
+/**
+ * East-west racking: back-to-back "tents" of low-tilt modules, ridges along z, half facing +x and
+ * half facing −x. Almost no inter-row shading, so the roof packs far tighter than equator rows.
+ * Returns the east (+x) modules first, then the west (−x) ones, as two arrays.
+ */
+function packEastWest(p, size, budget, { base, clearance, xSpan, zFront, zBack }, blocked) {
+  const { du, dv } = size
+  const t = EW_TILT * RAD
+  const half = dv * Math.cos(t)
+  const tentW = 2 * half
+  const along = fit(zFront - zBack, du)
+  const zStart = (zFront + zBack) / 2 + run(along, du) / 2
+  const tents = []
+  for (let x = -xSpan / 2, k = 0; x + tentW <= xSpan / 2 + 1e-6; k++) {
+    tents.push(x + half)
+    x += tentW + (k % 2 ? EW_AISLE : 0.05)
+  }
+  const shift = (xSpan / 2 - (tents.length ? tents[tents.length - 1] + half : 0)) / 2
+  const sides = { east: [], west: [] }
+  const posts = []
+  const yc = clearance + (dv / 2) * Math.sin(t)
+  tents.forEach((xr0, row) => {
+    const xr = xr0 + shift
+    for (let c = 0; c < along; c++) {
+      const z = zStart - c * (du + GAP) - du / 2
+      for (const [side, s] of [['east', 1], ['west', -1]]) {
+        const xc = xr + s * half / 2
+        const corners = [[xc - half / 2, z - du / 2], [xc + half / 2, z - du / 2], [xc + half / 2, z + du / 2], [xc - half / 2, z + du / 2]]
+        if (blocked(corners)) continue
+        sides[side].push({ pos: [xc, base + yc, z], U: [0, 0, 1], N: [s * Math.sin(t), Math.cos(t), 0], row, stack: side === 'east' ? 0 : 1 })
+      }
+    }
+    if (clearance > 1) for (let c = 0; c <= along; c += 4) posts.push({ pos: [xr, base, zStart - c * (du + GAP)], h: clearance + dv * Math.sin(t) - 0.04, row })
+  })
+  const take = Math.min(budget, sides.east.length + sides.west.length)
+  const east = sides.east.slice(0, Math.ceil(take / 2))
+  const west = sides.west.slice(0, take - east.length)
+  return { east, west, panels: [...east, ...west], posts, rails: [], rows: tents.length, cols: along, pitch: tentW, depth: tentW, sun: winterNoonAltitude(p.lat), aisle: EW_AISLE, eastWest: true }
+}
+
+/** Equator-facing rows, or east-west tents when that racking is chosen. */
+function racks(p, size, budget, opts, blocked, rects) {
+  return p.eastWest ? packEastWest(p, size, budget, opts, blocked) : packRows(p, size, budget, opts, blocked, rects)
+}
+
+/** The array entries for a rack result: one, or an east and a west array for east-west racking. */
+function rackArrays(out, rows, name, p, tilt) {
+  if (!rows.eastWest) {
+    out.arrays.push({ name, tilt, azimuth: norm360(p.azimuth), count: rows.panels.length, rows: rows.rows, cols: rows.cols })
+    return
+  }
+  // Local +x is the compass bearing azimuth − 90°.
+  out.arrays.push({ name: `${name} · east`, tilt: EW_TILT, azimuth: norm360(p.azimuth - 90), count: rows.east.length, rows: rows.rows, cols: rows.cols })
+  out.arrays.push({ name: `${name} · west`, tilt: EW_TILT, azimuth: norm360(p.azimuth + 90), count: rows.west.length, rows: rows.rows, cols: rows.cols })
+  out.facts.push(`East-west racking at ${EW_TILT}°: tents ${fmt1(rows.pitch)} m wide, ${fmt1(EW_AISLE)} m aisle every second tent`)
+}
+
 /**
  * One tilted canopy deck (carport or shelter roof): low edge along x at height `clear` and depth
  * `zFront`, climbing back (−z) by `tilt` over a horizontal `depth`. Modules cover the deck edge to
@@ -275,13 +338,13 @@ function terrace(p, size, cap, out) {
   out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
   const outside = (x, z) => !inside([x, z], ring) || edgeDistance([x, z], ring) < p.edge - 1e-3
   const elevated = p.elevated ? 2.2 : RACK_CLEARANCE
-  const rows = packRows(p, size, cap, {
+  const rows = racks(p, size, cap, {
     base: H, clearance: elevated, tilt: p.rackTilt,
     xSpan: out.L - 2 * p.edge, zFront: bb.z1 - p.edge, zBack: bb.z0 + p.edge,
   }, keepOut(rects, [outside]), rects)
   Object.assign(out, { panels: rows.panels, posts: rows.posts, rails: rows.rails })
   out.rowInfo = rows
-  out.arrays.push({ name: 'Terrace racks', tilt: p.rackTilt, azimuth: norm360(p.azimuth), count: rows.panels.length, rows: rows.rows, cols: rows.cols })
+  rackArrays(out, rows, 'Terrace racks', p, p.rackTilt)
   out.zones.push([...ring.map(([x, z]) => [x, H + 0.05, z]), [ring[0][0], H + 0.05, ring[0][1]]])
   out.surface = area(ring)
   out.plan = out.surface
@@ -410,7 +473,7 @@ function pitched(p, size, cap, out) {
   out.surface = out.plan / Math.cos(a)
   if (p.site === 'hip' && p.width > L) out.notes.push('A hip roof needs width ≤ length — width capped to the length.')
   if (p.site === 'lshape' && Ww < p.wingWidth) out.notes.push('Wing width capped to fit the main wing.')
-  if (p.ridge < 0.45) out.notes.push('Ridge setback under 0.45 m (18″) — most fire codes ask for at least that.')
+  if (p.ridge < 0.45 && !usesTiles(p)) out.notes.push('Ridge setback under 0.45 m (18″) — most fire codes ask for at least that.')
   if (p.pitch > 45) out.notes.push('Very steep roof: installation needs extra fall protection and rail spans.')
 }
 
@@ -436,13 +499,13 @@ export function computeLayout(input) {
     const rects = obstacles.map((ob) => grown(ob, 0.6))
     out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
     out.zones.push(flatZone(L, W, p.edge, H + 0.05))
-    const rows = packRows(p, size, cap, {
+    const rows = racks(p, size, cap, {
       base: H, clearance: RACK_CLEARANCE, tilt: p.rackTilt,
       xSpan: L - 2 * p.edge, zFront: W / 2 - p.edge, zBack: -W / 2 + p.edge,
     }, keepOut(rects), rects)
     Object.assign(out, { panels: rows.panels, posts: rows.posts, rails: rows.rails })
     out.rowInfo = rows
-    out.arrays.push({ name: 'Roof racks', tilt: p.rackTilt, azimuth: norm360(p.azimuth), count: rows.panels.length, rows: rows.rows, cols: rows.cols })
+    rackArrays(out, rows, 'Roof racks', p, p.rackTilt)
     out.surface = L * W
     out.plan = L * W
     if (p.edge < 1.2) out.notes.push('Commercial roofs usually keep a 1.2 m (4 ft) perimeter pathway clear.')
@@ -491,7 +554,7 @@ export function computeLayout(input) {
     const rects = obstacles.map((ob) => grown(ob, 1))
     out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
     out.zones.push(flatZone(L, W, p.edge, H + 0.05))
-    const rows = packRows(p, size, cap, {
+    const rows = racks(p, size, cap, {
       base: H, clearance: RACK_CLEARANCE, tilt: p.rackTilt,
       xSpan: L - 2 * p.edge, zFront: W / 2 - p.edge, zBack: -W / 2 + p.edge,
     }, keepOut(rects), rects)
@@ -499,7 +562,7 @@ export function computeLayout(input) {
     out.posts.push(...rows.posts)
     out.rails.push(...rows.rails)
     out.rowInfo = rows
-    out.arrays.push({ name: 'Terminal roof racks', tilt: p.rackTilt, azimuth: norm360(p.azimuth), count: rows.panels.length, rows: rows.rows, cols: rows.cols })
+    rackArrays(out, rows, 'Terminal roof racks', p, p.rackTilt)
     const park = carPark(p, size, cap - rows.panels.length, out, { zStart: W / 2 + 34 })
     out.arrays.push({ name: 'Parking canopies', tilt: p.canopyTilt, azimuth: norm360(p.azimuth), count: park.count, rows: park.rows, cols: park.cols })
     out.plan = L * W + park.len * park.depth * p.canopyRows

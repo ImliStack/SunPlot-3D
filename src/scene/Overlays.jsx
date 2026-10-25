@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
-import { PANELS } from '../presets.js'
+import { panelOf } from '../presets.js'
 
 // Engineering overlays drawn in the site frame: usable-area outlines, keep-outs, array tags, dimensions.
 
@@ -26,7 +26,7 @@ export function Zones({ layout }) {
 
 /** Tag anchors (site frame) for each array: letter, name, modules, kWp, tilt / azimuth. */
 export function arrayTags(layout, params) {
-  const watt = PANELS[params.panel].watt
+  const watt = panelOf(params).watt
   let start = 0
   return layout.arrays.map((a, i) => {
     const own = layout.panels.slice(start, start + a.count)

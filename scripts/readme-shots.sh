@@ -79,6 +79,11 @@ shot click-to-install "#site=flat&day=172&hour=10" 7 \
   "window.__solar.getState().setInstallMode('manual'); 'x'" \
   "const k = window.__installKeys; window.__solar.getState().applyKeys(k.filter(x => ['0','2'].includes(x.split('|')[1])), true); window.__solar.getState().setTool('row'); 'x'"
 shot climate-tab "#day=172&hour=10" 7 "window.__solar.getState().setTab('climate'); 'x'"
+shot electrical "#site=flat&day=172&hour=10&battLoad=3" 9 "window.__solar.getState().setTab('electrical'); 'x'"
+shot money "#site=flat&day=172&hour=10&loanShare=60" 9 "window.__solar.getState().setTab('money'); 'x'"
+shot solar-tiles "#site=hip&tiles=1&day=172&hour=10" 10
+shot east-west "#site=flat&eastWest=1&day=172&hour=10" 9
+shot exports "#site=flat&day=172&hour=10" 8 "document.querySelector('[aria-label=\"Export files\"]').click(); 'x'"
 shot snow "#lat=59.9&lon=10.75&placeName=Oslo&place=&day=20&hour=12&climate=cloudy" 12
 shot rain "#place=mumbai&placeName=Mumbai&lat=19.1&lon=72.88&climate=monsoon&day=196&hour=11&site=flat" 11
 survey survey-search search

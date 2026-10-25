@@ -51,7 +51,8 @@ rain and the snow, and send the client a proposal in one click. No install, no p
     <td align="center"><b>10 years</b><br /><sub>of measured climate</sub></td>
     <td align="center"><b>~1 s</b><br /><sub>to ray-cast 3,250 modules</sub></td>
     <td align="center"><b>5</b><br /><sub>install tools + undo</sub></td>
-    <td align="center"><b>5-page</b><br /><sub>client proposal PDF</sub></td>
+    <td align="center"><b>8-page</b><br /><sub>branded proposal PDF</sub></td>
+    <td align="center"><b>SLD + BOM</b><br /><sub>string checks, cables</sub></td>
   </tr>
 </table>
 
@@ -68,6 +69,8 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 
 ## ✦ Features
 
+> How SunPlot compares with Arka360, OpenSolar, Aurora, HelioScope, PV\*SOL and SolarEdge Designer: [docs/COMPETITORS.md](docs/COMPETITORS.md).
+
 **Design**
 - **Nine site types** — gable, hip, L-shaped and mono-pitch houses; flat roofs with tilted racks;
   an airport terminal with forecourt car-park canopies; solar carports (T / Y frames); bus shelters;
@@ -77,6 +80,21 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 - **Rows that don't shade each other** — pitch set from the winter-solstice noon sun.
 - **Click to install** — glowing slots show every place a module fits. Install or remove one module,
   a row, a column, a whole array, or paint across slots with a drag. Undo / redo, Fill all, Clear.
+- **East-west racking** on flat roofs and terraces: back-to-back 10° tents that pack far more modules.
+- **Solar roof tiles (BIPV)** on pitched roofs: glass tiles laid edge to edge, facet by facet, with a
+  side-by-side comparison against rail-mounted modules on the same roof.
+
+**Electrical**
+- **Inverter sizing and string design**: string lengths checked against the site's 10-year record-low
+  and record-high temperatures (Voc cold, Vmp hot, MPPT window and current), DC:AC ratio and MPPT inputs.
+- **Single-line diagram**: PV strings → DCDB → inverter (→ battery) → ACDB → net meter → grid.
+- **Cables and protection**: DC/AC cable sizes by ampacity and ≤ 1.5 % voltage drop, isolator, MCB/MCCB,
+  string fuses, SPDs, earthing and lightning arrester.
+- **Backup battery** from essential load and hours (LFP), and a **bill of materials** (CSV).
+
+**Money**
+- **25-year cash flow** with tariff escalation, degradation, O&M, an inverter swap, own use vs export,
+  subsidy (one-click PM Surya Ghar), **loan EMI**, **IRR, NPV, LCOE**, plus CO₂, trees and coal saved.
 
 **Energy**
 - **Ten years of NASA POWER weather** for any place on Earth — monthly irradiance, temperature, rain,
@@ -112,8 +130,11 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   petrol-pump facades with the building's name board — and a site-survey page in the PDF.
 
 **Share**
-- **Client proposal (PDF)** — 3D view, north-up plan, arrays, monthly energy, loss waterfall, P90,
-  site climate and 25-year financials, in one click.
+- **Branded client proposal (PDF)** — your company name, contact and colour; 3D view, north-up plan,
+  arrays, monthly energy, loss waterfall, P90, site climate, electrical design with SLD and BOM, and
+  25-year financials with loan, IRR and environmental impact, in one click.
+- **Exports** — CAD layout (.dxf, metres, north up), monthly and 8760-hour generation (.csv), bill of
+  materials (.csv), the 3D model (.glb for Blender / SketchUp) and an 8-second orbit video (.webm).
 - **Real installations** — solar plants mapped in OpenStreetMap near your site, and landmark
   projects (Bhadla, Pavagada, Cochin airport, Noor Abu Dhabi, Benban…) you can load.
 - **Shareable links**, PNG export, light & dark themes, fold-away side panels, phone layout.
@@ -138,6 +159,25 @@ rain and the snow, and send the client a proposal in one click. No install, no p
     <td align="center"><sub><b>Public buildings</b> — schools, hospitals, malls…</sub></td>
     <td align="center"><sub><b>3D map</b> — mapped heights, roof in amber</sub></td>
     <td align="center"><sub><b>In the studio</b> — hospital facade + name board</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/electrical.jpg" alt="Electrical tab: inverter, string checks and single-line diagram" /></td>
+    <td width="50%"><img src="docs/screenshots/money.jpg" alt="Money tab: 25-year cash flow, IRR, loan and environmental impact" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Electrical</b> — string checks, SLD, cables, BOM</sub></td>
+    <td align="center"><sub><b>Money</b> — cash flow, IRR, NPV, LCOE, EMI</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/solar-tiles.jpg" alt="Hip roof covered in solar roof tiles with a comparison to rail-mounted modules" /></td>
+    <td width="50%"><img src="docs/screenshots/east-west.jpg" alt="Flat roof with east-west racking" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Solar roof tiles</b> — facet by facet, vs modules on rails</sub></td>
+    <td align="center"><sub><b>East-west racking</b> — back-to-back 10° tents</sub></td>
   </tr>
 </table>
 
@@ -416,13 +456,17 @@ permits and grid connection still need a qualified installer.
 - [x] Client proposal PDF, nearby and landmark installations
 - [x] Remote site survey for Indian homes: satellite, building outlines, bill-based sizing, subsidy, roof zones
 - [x] Schools, hospitals, banks, supermarkets, malls and petrol pumps in the survey, with a 3D map and styled facades
+- [x] Inverters, string checks against record temperatures, SLD, cable sizing, protection, BOM
+- [x] 25-year cash flow with loan, IRR, NPV, LCOE; backup battery sizing; branded PDF
+- [x] Exports: DXF layout, monthly and 8760 h CSV, GLB 3D model, orbit video
+- [x] East-west racking and solar roof tiles (BIPV)
+- [ ] Saved projects with several designs per customer ([gap analysis](docs/COMPETITORS.md))
+- [ ] 12-month bill entry, EV / AC future load, time-of-use battery dispatch
+- [ ] DISCOM net-metering application pack (India)
 - [ ] Pitched roofs and multi-level terraces in the survey
-- [ ] Customer leads, bill upload and vendor quotes (separate backend)
-- [ ] Strings, inverters and MPPT assignment with voltage checks
-- [ ] Hourly TMY weather (PVGIS / NREL) and bifacial gain
+- [ ] Customer leads, e-sign and vendor quotes (separate backend)
+- [ ] Hourly TMY weather (PVGIS / NREL), bifacial gain, trackers
 - [ ] Wind and snow load zones per region
-- [ ] Bill of materials export (CSV) and branded proposal themes
-- [ ] Battery sizing and self-consumption from a load profile
 
 Research notes and earlier milestones are in [PLAN.md](PLAN.md).
 

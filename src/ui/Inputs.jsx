@@ -33,7 +33,7 @@ export function Field({ k, label, min, max, step = 1, unit = '', format, hint })
   )
 }
 
-function Toggle({ k, label, hint }) {
+export function Toggle({ k, label, hint }) {
   const value = useSolar((s) => s.params[k])
   const site = useSolar((s) => s.params.site)
   const set = useSolar((s) => s.set)
@@ -238,7 +238,9 @@ export default function Inputs() {
           <button role="radio" aria-checked={p.portrait} className={p.portrait ? 'is-on' : ''} onClick={() => set('portrait', true)}>Portrait</button>
           <button role="radio" aria-checked={!p.portrait} className={!p.portrait ? 'is-on' : ''} onClick={() => set('portrait', false)}>Landscape</button>
         </div>
-        <Field k="rackTilt" label="Rack tilt" min={5} max={35} unit="°" />
+        <Toggle k="tiles" label="Solar roof tiles (BIPV)" hint="Glass tiles replace the roofing, edge to edge, instead of modules on rails." />
+        <Toggle k="eastWest" label="East-west racking" hint="Back-to-back 10° tents: far more modules per roof, a little less per module." />
+        {!p.eastWest && <Field k="rackTilt" label="Rack tilt" min={5} max={35} unit="°" />}
         <Field k="groundTilt" label="Tilt" min={0} max={60} unit="°" hint={`Best fixed tilt here ≈ ${bestTilt(p.lat)}°`} />
         <Field k="stack" label="Modules per table (up slope)" min={1} max={4} />
         <Field k="clearance" label="Ground clearance" min={0.3} max={2.5} step={0.1} unit="m" />

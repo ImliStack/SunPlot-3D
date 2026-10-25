@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSolar } from '../store.js'
-import { useLayout, useYield } from '../hooks.js'
+import { useLayout, useYield, useEngineering } from '../hooks.js'
 import { captureView, captureFrom, nextFrames } from '../scene/capture.js'
 import Icon from './Icon.jsx'
 
 const remember = (k, v) => { try { localStorage.setItem(k, v) } catch {} }
 const recall = (k) => { try { return localStorage.getItem(k) ?? '' } catch { return '' } }
+const recallBrand = () => { try { return { color: '#1e3a5f', ...JSON.parse(localStorage.getItem('solar-brand') ?? '{}') } } catch { return { color: '#1e3a5f' } } }
 
 /** Toolbar button + small form: client name, preparer, then one click to a PDF proposal. */
 export default function Proposal() {
@@ -13,8 +14,11 @@ export default function Proposal() {
   const [client, setClient] = useState('')
   const [preparer, setPreparer] = useState(recall('solar-preparer'))
   const [step, setStep] = useState(null)
+  const [brand, setBrand] = useState(recallBrand)
+  const [more, setMore] = useState(false)
   const layout = useLayout()
   const y = useYield(layout)
+  const eng = useEngineering(layout, y)
   const params = useSolar((s) => s.params)
   const climate = useSolar((s) => s.climate)
   const shading = useSolar((s) => s.shading)
@@ -30,6 +34,7 @@ export default function Proposal() {
   const make = async () => {
     try {
       remember('solar-preparer', preparer)
+      remember('solar-brand', JSON.stringify(brand))
       const tags = useSolar.getState().layers
       setStep('Capturing the 3D view…')
       await nextFrames(2)
@@ -43,7 +48,7 @@ export default function Proposal() {
       setStep('Writing the PDF…')
       const { buildProposal } = await import('../report.js')
       const doc = await buildProposal({
-        params, layout, yield: y, date: new Date(), client: client.trim(), preparer: preparer.trim(),
+        params, layout, yield: y, eng, brand, date: new Date(), client: client.trim(), preparer: preparer.trim(),
         images: { hero, plan },
         survey: params.site === 'terrace' ? useSolar.getState().survey.summary ?? null : null,
         save: !(import.meta.env.DEV && window.__noSave), // local checks skip the download
@@ -66,7 +71,7 @@ export default function Proposal() {
       {open && (
         <div className="proposal-pop" role="dialog" aria-label="Client proposal">
           <strong>Client proposal</strong>
-          <p>PDF: 3D view, {params.site === 'terrace' && useSolar.getState().survey.summary ? 'site survey, ' : ''}plan, arrays, monthly energy, loss breakdown, site climate and 25-year financials.</p>
+          <p>PDF: 3D view, {params.site === 'terrace' && useSolar.getState().survey.summary ? 'site survey, ' : ''}plan, energy, site climate, electrical design with SLD and BOM, and 25-year financials.</p>
           <label className="field mini">
             <span className="field-label">Client</span>
             <input className="text" value={client} placeholder="e.g. Sharma Residence" onChange={(e) => setClient(e.target.value)} />
@@ -75,6 +80,21 @@ export default function Proposal() {
             <span className="field-label">Prepared by</span>
             <input className="text" value={preparer} placeholder="Your name or company" onChange={(e) => setPreparer(e.target.value)} />
           </label>
+          <button className="link-btn" onClick={() => setMore((v) => !v)}>{more ? 'Hide' : 'Your company'}{brand.company ? ` · ${brand.company}` : ' (logo line, contact, colour)'}</button>
+          {more && (
+            <div className="brand-fields">
+              {[['company', 'Company', 'e.g. Surya Power Solutions'], ['phone', 'Phone', '+91 98…'], ['email', 'Email', 'sales@…']].map(([k, label, ph]) => (
+                <label key={k} className="field mini">
+                  <span className="field-label">{label}</span>
+                  <input className="text" value={brand[k] ?? ''} placeholder={ph} onChange={(e) => setBrand((b) => ({ ...b, [k]: e.target.value }))} />
+                </label>
+              ))}
+              <label className="field mini color-field">
+                <span className="field-label">Brand colour</span>
+                <input type="color" value={brand.color} onChange={(e) => setBrand((b) => ({ ...b, color: e.target.value }))} />
+              </label>
+            </div>
+          )}
           <ul className="checks">
             <li className={climate.status === 'ready' ? 'ok' : ''}>{climate.status === 'ready' ? 'Measured climate included' : 'Climate data not loaded — model figures used'}</li>
             <li className={shading.status === 'ready' && y.shaded ? 'ok' : ''}>{y.shaded ? 'Shading study included' : 'Shading study still running'}</li>

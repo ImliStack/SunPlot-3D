@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { useSolar } from '../store.js'
 import { indexArrays, targetsFor } from '../installTools.js'
 import { getControls } from './capture.js'
-import { PANELS } from '../presets.js'
+import { panelOf, portraitOf } from '../presets.js'
 import { textures } from './textures.js'
 
 export const MODULE_DEPTH = 0.035
@@ -43,7 +43,7 @@ function shadeColor(f, out) {
 export function Modules({ candidates, params }) {
   const main = useRef()
   const ghost = useRef()
-  const m = PANELS[params.panel]
+  const m = panelOf(params)
   const tex = textures()
   const install = useSolar((s) => s.install)
   const hover = useSolar((s) => s.hover)
@@ -101,7 +101,7 @@ export function Modules({ candidates, params }) {
       y.set(...pnl.N)
       x.set(...pnl.U)
       // Landscape turns the module a quarter-turn on its own plane.
-      if (!params.portrait) x.crossVectors(tmp.s.set(...pnl.U), y)
+      if (!portraitOf(params)) x.crossVectors(tmp.s.set(...pnl.U), y)
       z.crossVectors(x, y)
       mat.makeBasis(x, y, z)
       p.set(...pnl.pos).addScaledVector(y, MODULE_DEPTH / 2)
@@ -109,7 +109,7 @@ export function Modules({ candidates, params }) {
       mat.toArray(out, i * 16)
     })
     return out
-  }, [candidates, params.portrait, count])
+  }, [candidates, portraitOf(params), count])
 
   const zero = useMemo(() => new THREE.Matrix4().makeScale(0, 0, 0), [])
 

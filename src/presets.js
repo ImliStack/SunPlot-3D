@@ -1,13 +1,26 @@
 // Reference data the planner starts from. Every number here is an editable default, not a rule.
 
-// Module sizes from current datasheets (mm → m). Short side `w`, long side `h`.
+// Module sizes from current datasheets (mm → m). Short side `w`, long side `h`. Electrical values at STC:
+// open-circuit / max-power voltage and current, temperature coefficients in %/°C (Voc, Pmax).
 export const PANELS = {
-  res430: { label: '430 W residential', note: '108 half-cell TOPCon · 1722 × 1134 mm', w: 1.134, h: 1.722, watt: 430, kg: 21 },
-  com550: { label: '550 W commercial', note: '144 half-cell mono · 2278 × 1134 mm', w: 1.134, h: 2.278, watt: 550, kg: 28 },
-  dcr545: { label: '545 W DCR mono PERC', note: 'Made-in-India cells (ALMM List-II) · 2279 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.279, watt: 545, kg: 27.5, dcr: true },
-  dcr580: { label: '580 W DCR TOPCon', note: 'Made-in-India cells (ALMM List-II) · 2278 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.278, watt: 580, kg: 28, dcr: true },
-  utl620: { label: '620 W utility bifacial', note: '132 half-cell TOPCon · 2382 × 1134 mm', w: 1.134, h: 2.382, watt: 620, kg: 33 },
+  res430: { label: '430 W residential', note: '108 half-cell TOPCon · 1722 × 1134 mm', w: 1.134, h: 1.722, watt: 430, kg: 21, voc: 38.9, vmp: 32.4, isc: 14.0, imp: 13.28, bVoc: -0.25, gPmax: -0.30 },
+  com550: { label: '550 W commercial', note: '144 half-cell mono · 2278 × 1134 mm', w: 1.134, h: 2.278, watt: 550, kg: 28, voc: 49.9, vmp: 41.9, isc: 13.95, imp: 13.13, bVoc: -0.27, gPmax: -0.35 },
+  dcr545: { label: '545 W DCR mono PERC', note: 'Made-in-India cells (ALMM List-II) · 2279 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.279, watt: 545, kg: 27.5, dcr: true, voc: 49.6, vmp: 41.8, isc: 13.9, imp: 13.04, bVoc: -0.27, gPmax: -0.35 },
+  dcr580: { label: '580 W DCR TOPCon', note: 'Made-in-India cells (ALMM List-II) · 2278 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.278, watt: 580, kg: 28, dcr: true, voc: 51.9, vmp: 43.4, isc: 14.2, imp: 13.37, bVoc: -0.25, gPmax: -0.30 },
+  utl620: { label: '620 W utility bifacial', note: '132 half-cell TOPCon · 2382 × 1134 mm', w: 1.134, h: 2.382, watt: 620, kg: 33, voc: 47.9, vmp: 40.1, isc: 16.4, imp: 15.47, bVoc: -0.25, gPmax: -0.29 },
 }
+
+// Roof-integrated solar tile (BIPV): replaces the roofing on pitched roofs, laid long side along the
+// eave and edge to edge. Generic glass-on-glass tile; real products range ~60–110 W.
+export const TILE = { label: '72 W solar roof tile', note: 'Roof-integrated glass tile · 1140 × 420 mm · replaces roofing', w: 0.42, h: 1.14, watt: 72, kg: 6.5, voc: 9.9, vmp: 8.2, isc: 9.6, imp: 8.78, bVoc: -0.27, gPmax: -0.36, tile: true }
+
+const TILE_SITES = ['gable', 'hip', 'lshape', 'shed']
+/** Solar tiles are on for this design (pitched houses only). */
+export const usesTiles = (p) => !!p.tiles && TILE_SITES.includes(p.site)
+/** The module actually laid: the chosen one, or the solar tile. */
+export const panelOf = (p) => (usesTiles(p) ? TILE : PANELS[p.panel])
+/** Tiles always run long side along the eave. */
+export const portraitOf = (p) => (usesTiles(p) ? false : p.portrait)
 
 export const SITES = {
   terrace: { group: 'Homes', label: 'Terrace (site survey)', short: 'Terrace', hint: 'Flat terrace of any shape — from the site survey map or a default outline' },
@@ -106,6 +119,27 @@ export const DEFAULTS = {
   closeTrees: false, // mature trees right next to the site (shade study)
   elevated: true, // terrace: raised structure so the terrace stays usable
   terrace: null, // terrace: { outline, mumty, tank, neighbours, front, address } in site metres
+  eastWest: false, // flat roofs: back-to-back east-west racks instead of rows facing the equator
+  tiles: false, // pitched roofs: roof-integrated solar tiles instead of rail-mounted modules
+  // Electrical
+  inverter: 'auto', // inverter model key, or auto
+  invCount: 0, // inverters, 0 = auto
+  dcRun: 0, // m from array to inverter, 0 = estimate
+  acRun: 0, // m from inverter to the meter / LT panel, 0 = estimate
+  // Money
+  subsidy: 0, // incentive deducted from the cost
+  escalation: 3, // % a year the grid tariff rises
+  discount: 8, // % a year, for NPV and LCOE
+  omPct: 0.8, // % of the cost a year for cleaning, O&M and insurance
+  useKwh: 0, // kWh a month the site uses, 0 = all solar valued at the tariff
+  exportRate: 0, // paid per kWh exported beyond own use, 0 = 40 % of the tariff
+  loanShare: 0, // % of the net cost financed
+  loanRate: 9.5, // % a year
+  loanYears: 7,
+  // Battery (backup)
+  battLoad: 0, // kW of essential load to back up, 0 = no battery
+  battHours: 4, // hours of backup
+  battPrice: 0, // per kWh installed, 0 = estimate from the module price
 }
 
 const HOUSES = ['gable', 'hip', 'lshape', 'shed']
@@ -119,6 +153,8 @@ export const SHOWS = {
   ridge: HOUSES,
   edge: [...HOUSES, 'flat', 'ground', 'airport', 'terrace'],
   rackTilt: ['flat', 'airport', 'terrace'],
+  eastWest: ['flat', 'airport', 'terrace'],
+  tiles: HOUSES,
   groundTilt: ['ground'],
   clearance: ['ground'],
   stack: ['flat', 'ground', 'airport', 'terrace'],

@@ -31,6 +31,9 @@ js "window.__solar.getState().setInstallMode('manual'); window.__solar.getState(
 for r in 0 1 2 3; do
   js "const k = window.__installKeys; window.__solar.getState().applyKeys(k.filter(x => x.split('|')[1] === '$r'), true); 'ok'"; cap 1
 done
+js "window.__solar.getState().setTab('electrical'); 'ok'"; cap 3
+js "window.__solar.getState().setTab('money'); 'ok'"; cap 3
+js "window.__solar.getState().setTab('system'); 'ok'"; cap 1
 js "window.__solar.getState().set('weather', 'snow'); 'ok'"; cap 3
 js "window.__solar.getState().set('weather', 'auto'); window.__solar.getState().setInstallMode('auto'); window.__solar.getState().setMode('survey'); window.__solar.getState().patchSurvey({ center: [75.8115, 26.8535], pin: [75.8115, 26.8535], address: 'Malviya Nagar, Jaipur', state: 'Rajasthan' }); 'ok'"
 cap 4

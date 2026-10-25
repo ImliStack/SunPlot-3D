@@ -248,7 +248,11 @@ function Results({ rec }) {
       </aside>
     )
   }
-  const open = () => openInStudio([...rec.keys])
+  // Carry the bill and the subsidy into the studio's money tab.
+  const open = () => {
+    useSolar.getState().patch({ useKwh: sv.units || 0, subsidy: rec.subsidy || 0 })
+    openInStudio([...rec.keys])
+  }
   const m = PANELS[params.panel]
   return (
     <aside className="results survey-results" aria-label="Survey results">

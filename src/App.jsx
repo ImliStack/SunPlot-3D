@@ -5,6 +5,7 @@ import Results from './ui/Results.jsx'
 import Icon from './ui/Icon.jsx'
 import TagLayer from './ui/TagLayer.jsx'
 import Proposal from './ui/Proposal.jsx'
+import Exports from './ui/Exports.jsx'
 import PanelToggles from './ui/PanelToggles.jsx'
 
 // The map-based survey (MapLibre) loads only when someone opens it.
@@ -13,7 +14,7 @@ import { useSolar } from './store.js'
 import { useCandidates, useLayout, useYield } from './hooks.js'
 import { TOOLS, indexArrays, targetsFor, describe } from './installTools.js'
 import { useWeather } from './scene/Weather.jsx'
-import { PANELS } from './presets.js'
+import { panelOf } from './presets.js'
 import { useHashLink } from './links.js'
 import { useClimateFetch } from './climate.js'
 import { useShadingStudy } from './shadingClient.js'
@@ -63,6 +64,7 @@ function Tools() {
         {tool('hq', hq ? 'High quality (ambient occlusion) on' : 'High quality off — faster', st.toggleHq, hq)}
         {tool(theme === 'dark' ? 'sun' : 'moon', theme === 'dark' ? 'Light theme' : 'Dark theme', st.toggleTheme)}
         <Proposal />
+        <Exports />
         {tool('camera', 'Save image', st.takeSnapshot)}
         {tool(copied ? 'check' : 'link', copied ? 'Link copied' : 'Copy link to this design', share)}
       </div>
@@ -110,7 +112,7 @@ function InstallBar() {
   const params = useSolar((s) => s.params)
   const { setInstallMode, setTool, applyKeys, undo, redo } = useSolar.getState()
   const manual = install.mode === 'manual'
-  const watt = PANELS[params.panel].watt
+  const watt = panelOf(params).watt
   const all = useMemo(() => candidates.panels.map((p) => p.key), [candidates])
   const byArray = useMemo(() => indexArrays(candidates), [candidates])
   const done = all.filter((k) => install.sel[k]).length

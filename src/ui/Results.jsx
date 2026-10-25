@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSolar } from '../store.js'
-import { useLayout, useYield } from '../hooks.js'
-import { PANELS, CLIMATES } from '../presets.js'
+import { useLayout, useYield, useEngineering } from '../hooks.js'
+import { CLIMATES, PANELS, panelOf, usesTiles } from '../presets.js'
+import { computeLayout } from '../layout.js'
 import { MONTHS } from '../solar.js'
 import { LANDMARKS, fetchNearby, distanceKm } from '../installations.js'
 import { climateClass } from '../climate.js'
 import Icon from './Icon.jsx'
+import { ElectricalTab, MoneyTab } from './Engineering.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 const energy = (kwh) => (kwh >= 1e6 ? [fmt(kwh / 1e6, 2), 'GWh'] : kwh >= 1e4 ? [fmt(kwh / 1e3, 1), 'MWh'] : [fmt(kwh), 'kWh'])
@@ -125,8 +127,31 @@ function Waterfall({ y }) {
   )
 }
 
+const TILE_HEAT = 0.02 // integrated tiles have no air gap behind them: ≈ 2 % less energy per kWp
+
+/** Solar tiles against the same roof with the chosen module on rails. */
+function TileCompare({ p, layout, y }) {
+  const rails = computeLayout({ ...p, tiles: false })
+  if (!rails.kwp) return null
+  const dc = layout.kwp / rails.kwp - 1
+  const kwh = (layout.kwp * (1 - TILE_HEAT)) / rails.kwp - 1
+  const sign = (v) => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v) * 100, 1)} %`
+  return (
+    <section className="card">
+      <h3>Solar tiles vs modules on rails</h3>
+      <div className="grid2">
+        <Stat value={`${fmt(layout.kwp, 2)} / ${fmt(rails.kwp, 2)}`} unit="kWp" label={`tiles / ${PANELS[p.panel].watt} W modules`} />
+        <Stat value={sign(dc)} label="DC capacity with tiles" />
+        <Stat value={sign(kwh)} label="annual energy (est.)" tip="Same planes and climate; tiles run warmer with no air gap (≈ −2 %)" />
+        <Stat value={fmt(layout.count)} label={`tiles (${fmt(rails.count)} modules)`} />
+      </div>
+      <p className="card-note">Tiles cover the roof edge to edge, including hip triangles that rail-mounted modules leave empty, but each tile makes fewer watts per m². {dc > 0 ? 'On this roof the coverage wins.' : 'On this roof full-size modules still pack more power.'} {fmt(y.specific)} kWh/kWp either way before the heat penalty.</p>
+    </section>
+  )
+}
+
 function SystemTab({ p, layout, y }) {
-  const m = PANELS[p.panel]
+  const m = panelOf(p)
   const cost = layout.kwp * 1000 * p.cost
   const savings = y.annual * p.tariff
   const payback = savings ? cost / savings : 0
@@ -161,6 +186,8 @@ function SystemTab({ p, layout, y }) {
           <ShadeStat y={y} />
         </div>
       </section>
+
+      {usesTiles(p) && <TileCompare p={p} layout={layout} y={y} />}
 
       {measured && y.losses && <Waterfall y={y} />}
 
@@ -381,7 +408,7 @@ function NearbyTab({ p }) {
   )
 }
 
-const TABS = [['system', 'System', 'bolt'], ['climate', 'Climate', 'cloud'], ['nearby', 'Nearby', 'globe']]
+const TABS = [['system', 'System', 'bolt'], ['electrical', 'Electrical', 'plug'], ['money', 'Money', 'coin'], ['climate', 'Climate', 'cloud'], ['nearby', 'Nearby', 'globe']]
 
 export default function Results() {
   const p = useSolar((s) => s.params)
@@ -389,6 +416,8 @@ export default function Results() {
   const setTab = useSolar((s) => s.setTab)
   const layout = useLayout()
   const y = useYield(layout)
+  const eng = useEngineering(layout, y)
+  const survey = useSolar((s) => s.survey)
   return (
     <aside className="results" aria-label="Results">
       <div className="tabs" role="tablist">
@@ -400,6 +429,8 @@ export default function Results() {
       </div>
       <div className="tab-body" aria-live="polite">
         {tab === 'system' && <SystemTab p={p} layout={layout} y={y} />}
+        {tab === 'electrical' && <ElectricalTab p={p} layout={layout} eng={eng} />}
+        {tab === 'money' && <MoneyTab p={p} layout={layout} eng={eng} survey={survey} />}
         {tab === 'climate' && <ClimateTab p={p} y={y} />}
         {tab === 'nearby' && <NearbyTab p={p} />}
       </div>

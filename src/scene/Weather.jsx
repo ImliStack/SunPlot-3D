@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { useSolar } from '../store.js'
 import { useLayout } from '../hooks.js'
 import { siteRadius } from '../context.js'
-import { PANELS } from '../presets.js'
+import { panelOf } from '../presets.js'
 import { MODULE_DEPTH } from './Arrays.jsx'
 import { materials } from './parts.jsx'
 import { MONTHS } from '../solar.js'
@@ -111,7 +111,7 @@ function SnowOnModules() {
   const ref = useRef()
   const layout = useLayout()
   const params = useSolar((s) => s.params)
-  const m = PANELS[params.panel]
+  const m = panelOf(params)
   const panels = layout.panels
   const geometry = useMemo(() => new THREE.BoxGeometry(1, 0.05, 1), [])
   const material = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f5f8fb', roughness: 0.9 }), [])
