@@ -477,6 +477,84 @@ function pitched(p, size, cap, out) {
   if (p.pitch > 45) out.notes.push('Very steep roof: installation needs extra fall protection and rail spans.')
 }
 
+const SKYLIGHT_W = 1.06 // m, one polycarbonate sheet's cover width
+const SKYLIGHT_CLEAR = 0.3 // m kept clear beside each skylight strip (no shading, no stepping)
+const WALKWAY = 0.6 // m cleaning walkway between module blocks
+const SHEET_LOAD = 15 // kg/m² a typical PEB roof allows as collateral load for solar
+
+/**
+ * Industrial shed (PEB / steel portal frames): `spans` gable spans side by side, ridges along x,
+ * each `span` wide, metal sheets at a low slope. Modules sit flush on short rails clamped to the
+ * sheet ribs, on both faces. Polycarbonate skylight strips and cleaning walkways run from eave to
+ * ridge and stay clear; turbo ventilators sit on the ridges.
+ */
+function industrial(p, size, cap, out) {
+  const n = Math.max(1, Math.round(p.spans))
+  const S = p.span
+  const L = p.length
+  const W = n * S
+  const a = p.shedSlope * RAD
+  const H = p.eave
+  const rise = (S / 2) * Math.tan(a)
+  out.L = L
+  out.W = W
+  // Strips across the roof (eave → ridge) that modules keep off: skylights, then walkways.
+  const strips = []
+  const skyCount = Math.round(((p.skylights / 100) * L) / SKYLIGHT_W)
+  const skyX = Array.from({ length: skyCount }, (_, i) => -L / 2 + ((i + 0.5) * L) / skyCount)
+  skyX.forEach((x) => strips.push([x - SKYLIGHT_W / 2 - SKYLIGHT_CLEAR, x + SKYLIGHT_W / 2 + SKYLIGHT_CLEAR]))
+  if (p.walkEvery > 0) {
+    const block = p.walkEvery * (size.du + GAP)
+    for (let x = -L / 2 + p.edge + block; x < L / 2 - p.edge - block / 2; x += block + WALKWAY) strips.push([x, x + WALKWAY])
+  }
+  const clear = (corners) => corners.some(([x]) => strips.some(([x0, x1]) => x > x0 && x < x1)) ||
+    strips.some(([x0, x1]) => Math.min(...corners.map((c) => c[0])) < x0 && Math.max(...corners.map((c) => c[0])) > x1)
+  const vents = []
+  const perSpan = Math.max(0, Math.round(p.vents / n))
+  const front = []
+  const back = []
+  let rows = 0
+  let cols = 0
+  let left = cap
+  for (let i = 0; i < n; i++) {
+    const zc = -W / 2 + S * (i + 0.5)
+    for (let k = 0; k < perSpan; k++) {
+      const x = -L / 2 + ((k + 0.5) * L) / perSpan
+      vents.push({ kind: 'turbo', x, z: zc, w: 0.6, d: 0.6, y0: H + rise - 0.05, h: 0.75 })
+    }
+    for (const [face, list, E, U, inward] of [
+      ['front', front, [0, H, zc + S / 2], [1, 0, 0], [0, 0, -1]],
+      ['back', back, [0, H, zc - S / 2], [-1, 0, 0], [0, 0, 1]],
+    ]) {
+      const pl = plane({ E, U, inward, a, runH: S / 2 })
+      if (face === 'back' && !p.bothFaces) continue
+      const half = () => L / 2 - p.edge
+      const vTo = pl.slope - p.ridge
+      const res = packPlane(pl, { half, vFrom: p.edge, vTo, rowBase: i * 100 + (face === 'back' ? 50 : 0) }, size, left, clear)
+      left -= res.panels.length
+      list.push(...res.panels)
+      rows = Math.max(rows, res.rows)
+      cols = Math.max(cols, res.cols)
+      out.zones.push(zoneOutline(pl, half, p.edge, vTo))
+      out.roofQuads.push({ c: add(pl.E, mul(pl.V, pl.slope / 2), mul(pl.N, -0.02)), n: pl.N, u: pl.U, v: pl.V, hu: L / 2, hv: pl.slope / 2 })
+    }
+  }
+  out.panels.push(...front, ...back)
+  const az = norm360(p.azimuth)
+  out.arrays.push({ name: n > 1 ? 'Front slopes' : 'Front slope', tilt: p.shedSlope, azimuth: az, count: front.length, rows, cols })
+  if (p.bothFaces) out.arrays.push({ name: n > 1 ? 'Back slopes' : 'Back slope', tilt: p.shedSlope, azimuth: norm360(p.azimuth + 180), count: back.length, rows, cols })
+  out.obstacles = vents
+  out.building = { kind: 'industrial', H, ridgeY: H + rise, spans: n, span: S, a, rise, W, skylights: skyX.map((x) => ({ x, w: SKYLIGHT_W })), walkways: strips.slice(skyCount) }
+  out.plan = L * W
+  out.surface = out.plan / Math.cos(a)
+  out.facts = [
+    `${n} span${n > 1 ? 's' : ''} × ${fmt1(S)} m, ${fmt1(L)} m long, ${fmt1(p.shedSlope)}° metal roof (1:${fmt1(1 / Math.tan(a))})`,
+    `${skyCount} skylight strip${skyCount === 1 ? '' : 's'} per slope kept clear${p.walkEvery > 0 ? `, ${fmt1(WALKWAY)} m walkway every ${p.walkEvery} modules` : ''}`,
+  ]
+  if (p.shedSlope < 3) out.notes.push('Under 3° the sheets may pond water and dust: expect higher soiling, and check the sheet laps.')
+  if (!p.walkEvery) out.notes.push('No walkways: cleaners will have to step on modules or sheets. Walkways and a lifeline are standard on metal roofs.')
+}
+
 export function computeLayout(input) {
   const p = siteInputs(input)
   const size = moduleSize(p)
@@ -570,6 +648,8 @@ export function computeLayout(input) {
     out.forecourt = W / 2 + 34
     const cars = p.bays * p.canopyRows * (p.doubleRow ? 2 : 1)
     out.facts = [`${cars} parking bays under canopies`, 'Cochin (CIAL) runs ~50 MW of solar incl. a 5 MW carport']
+  } else if (p.site === 'industrial') {
+    industrial(p, size, cap, out)
   } else if (p.site === 'ground') {
     out.building = { kind: 'ground' }
     out.zones.push(flatZone(L, W, p.edge, 0.06))
@@ -620,6 +700,8 @@ function totals(out, p, cap, manual = false) {
   out.coverage = out.surface ? out.moduleArea / out.surface : 0
   // Dead load on the roof: modules plus ~3 kg/m² of rails and clamps (ballast not included).
   out.load = ['ground', 'carport', 'busstop'].includes(p.site) || !count ? 0 : (count * m.kg + out.moduleArea * 3) / out.moduleArea
+  if (p.site === 'industrial' && count && out.load > SHEET_LOAD) out.notes.push(`About ${fmt1(out.load)} kg/m² on the sheets, above the ~${SHEET_LOAD} kg/m² most PEB roofs allow for solar — get the purlins checked.`)
+  else if (p.site === 'industrial' && count) out.facts.push(`≈ ${fmt1(out.load)} kg/m² dead load (modules + short rails); PEB roofs usually allow 10–15 kg/m² — confirm with the purlin design`)
   if (!count) out.notes.unshift(manual ? 'Nothing installed yet — click a glowing area in the 3D view to install modules there.' : 'No module fits — shrink the setbacks, switch orientation or enlarge the area.')
   if (p.target > 0 && count < cap) out.notes.unshift(`Only ${count} of the ${cap} modules for ${p.target} kWp fit here.`)
   if (offEquator(p.azimuth, p.lat) > 60) out.notes.push('The main array faces well away from the equator — expect a clear drop in yield.')

@@ -7,6 +7,7 @@ import { PANELS } from '../presets.js'
 import { SITE_SIZES } from '../store.js'
 import { fetchBuildings } from './osm.js'
 import { surveyToParams } from './apply.js'
+import { computeLayout } from '../layout.js'
 import { area, openRing, toLocal } from './geo.js'
 import { subsidy, isSpecialState, sizeSystem, rankZones, bestModules, placementAdvice, MAKERS } from './sizing.js'
 import SurveyMap from './SurveyMap.jsx'
@@ -196,6 +197,7 @@ function Steps() {
           {sv.ring && <button className="link-btn small" onClick={() => patchSurvey({ ring: null })}>Clear outline</button>}
         </div>
         {sv.ring && <p className="field-hint">{fmt(roofM2)} m² ({fmt(roofM2 * 10.764)} sq ft){sv.levels ? ` · map says ${sv.levels} floors` : ''}</p>}
+        <CampusCard />
       </Step>
 
       <Step n={3} title="On the terrace" done={!!(sv.mumty || sv.tank)} summary={[sv.mumty && 'stair room', sv.tank && 'tank'].filter(Boolean).join(' + ')}>
@@ -232,6 +234,60 @@ function Steps() {
       </Step>
     </aside>
   )
+}
+
+/** Campus mode: several buildings (college blocks, hostels, hospital wings, factory sheds) summed. */
+function CampusCard() {
+  const sv = useSolar((s) => s.survey)
+  const params = useSolar((s) => s.params)
+  const layout = useLayout()
+  const y = useYield(layout)
+  const { patchSurvey } = useSolar.getState()
+  const rows = useCampus(sv, params, y.specific)
+  const total = rows.reduce((a, r) => ({ m2: a.m2 + r.m2, kwp: a.kwp + r.kwp, kwh: a.kwh + r.kwh, count: a.count + r.count }), { m2: 0, kwp: 0, kwh: 0, count: 0 })
+  return (
+    <div className="campus">
+      <label className="toggle compact">
+        <span><span className="field-label">Campus: several buildings</span><span className="field-hint">Click each block on the map; click again to drop it.</span></span>
+        <input type="checkbox" checked={!!sv.campusMode} onChange={(ev) => patchSurvey({ campusMode: ev.target.checked, campus: ev.target.checked && sv.ring ? [{ id: 'first', ring: sv.ring, levels: sv.levels, name: 'Block A' }] : sv.campus })} />
+        <span className="switch" aria-hidden="true" />
+      </label>
+      {sv.campusMode && rows.length > 0 && (
+        <table className="arrays campus-table">
+          <thead><tr><th>Block</th><th>Fl.</th><th>m²</th><th>kWp</th><th>MWh/yr</th><th /></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className={sv.ring === r.ring ? 'is-best' : ''}>
+                <td><input className="campus-name" value={r.name} onChange={(ev) => patchSurvey({ campus: sv.campus.map((b) => (b.id === r.id ? { ...b, name: ev.target.value } : b)) })} /></td>
+                <td>{r.floors}</td><td>{fmt(r.m2)}</td><td>{fmt(r.kwp, 1)}</td><td>{fmt(r.kwh / 1000, 1)}</td>
+                <td>
+                  <button className="mini-chip" title="Make this the block shown and opened in 3D" onClick={() => patchSurvey({ ring: r.ring, levels: r.levels })}>Open</button>
+                  <button className="mini-chip" aria-label={`Remove ${r.name}`} onClick={() => patchSurvey({ campus: sv.campus.filter((b) => b.id !== r.id) })}>×</button>
+                </td>
+              </tr>
+            ))}
+            <tr className="is-total"><td>Total</td><td /><td>{fmt(total.m2)}</td><td>{fmt(total.kwp, 1)}</td><td>{fmt(total.kwh / 1000, 1)}</td><td /></tr>
+          </tbody>
+        </table>
+      )}
+      {sv.campusMode && rows.length > 0 && <p className="field-hint">Full roofs on elevated racks at {fmt(y.specific)} kWh/kWp (this site's yield). Parking can take carports: add them in the 3D studio.</p>}
+    </div>
+  )
+}
+
+/** Each campus block laid out as a terrace with the current module and setbacks. */
+function useCampus(sv, params, specific) {
+  return useMemo(() => {
+    if (!sv.campusMode) return []
+    return (sv.campus ?? []).map((b) => {
+      const next = surveyToParams({ ...sv, ring: b.ring, mumty: null, tank: null, neighbours: [], buildings: [] })
+      const floors = Math.max(1, Math.round(b.levels || params.floors))
+      const L = computeLayout({ ...params, ...next, site: 'terrace', floors })
+      const ring = openRing(b.ring)
+      const m2 = area(ring.map((q) => toLocal(q, ring[0])))
+      return { ...b, floors, m2, kwp: L.kwp, count: L.count, kwh: L.kwp * specific }
+    })
+  }, [sv, params, specific])
 }
 
 /** Everything the survey concludes, plus the hand-off to the 3D studio. */
@@ -398,6 +454,7 @@ export default function Survey() {
     }
   }, [sv, params, layout, y, shading, install])
 
+  const campusRows = useCampus(sv, params, y.specific)
   // Keep a summary for the proposal PDF.
   useEffect(() => {
     if (!rec) return
@@ -406,10 +463,11 @@ export default function Survey() {
       roofM2: rec.roofM2, roofKw: rec.roofKw, yearly: rec.yearly, cost: rec.cost, subsidy: rec.subsidy,
       payback: rec.payback, advice: rec.advice, zones: rec.zones.map(({ name, count, shade }) => ({ name, count, shade })),
       cover: rec.size.cover, limit: rec.size.limit,
+      campus: campusRows.length > 1 ? campusRows.map(({ name, floors, m2, kwp, kwh, count }) => ({ name, floors, m2, kwp, kwh, count })) : null,
     }
     const prev = useSolar.getState().survey.summary
     if (JSON.stringify(prev) !== JSON.stringify(summary)) patchSurvey({ summary })
-  }, [rec, sv.address, sv.state, patchSurvey])
+  }, [rec, sv.address, sv.state, patchSurvey, campusRows])
 
   return (
     <>

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSolar } from '../store.js'
 import { useLayout, useCandidates } from '../hooks.js'
-import { House, FlatBuilding, Terminal, BusStops, GroundPlot, Obstacles, TerraceHouse } from './Buildings.jsx'
+import { House, FlatBuilding, Terminal, BusStops, GroundPlot, Obstacles, TerraceHouse, IndustrialShed } from './Buildings.jsx'
 import { Canopies, CarPark } from './Structures.jsx'
 import { Modules, Racking } from './Arrays.jsx'
 import { Zones, Dimensions, TagProjector, arrayTags, dimTags } from './Overlays.jsx'
@@ -26,6 +26,7 @@ export default function Site() {
     <group rotation-y={ry}>
       {HOUSES.includes(kind) && <House layout={layout} params={params} />}
       {kind === 'flat' && <FlatBuilding layout={layout} params={params} />}
+      {kind === 'industrial' && <IndustrialShed layout={layout} />}
       {kind === 'terrace' && <TerraceHouse layout={layout} />}
       {kind === 'airport' && <Terminal layout={layout} />}
       {kind === 'busstop' && <BusStops layout={layout} params={params} />}

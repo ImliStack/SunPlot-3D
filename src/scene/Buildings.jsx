@@ -114,7 +114,7 @@ export function House({ layout, params }) {
         </mesh>
       )}
       {roof.ends.map((pts, i) => <Face key={`e${i}`} points={pts} material={m.gable} U={[0, 0, 1]} V={[0, 1, 0]} tile={3} />)}
-      {roof.faces.map((f, i) => <Face key={`f${i}`} points={f.pts} U={f.U} V={f.V} material={m.shingles} />)}
+      {roof.faces.map((f, i) => <Face key={`f${i}`} points={f.pts} U={f.U} V={f.V} material={{ clay: m.clay, metal: m.metalRoof }[params.roofing] ?? m.shingles} />)}
       {eaves.map(([a1, b1], i) => <Eave key={`v${i}`} a={a1} b={b1} />)}
       {ridges.map(([a1, b1], i) => <Strip key={`r${i}`} a={a1} b={b1} w={0.22} h={0.08} material={m.fascia} />)}
       <Facades L={L} W={W} floors={params.floors} sides={wing ? ['back', 'left', 'right'] : undefined} />
@@ -175,6 +175,15 @@ export function Obstacles({ list }) {
         </group>
       )
     }
+    if (o.kind === 'turbo') {
+      return (
+        <group key={i} position={[o.x, o.y0, o.z]}>
+          <mesh position={[0, 0.2, 0]} material={m.steel}><cylinderGeometry args={[0.18, 0.22, 0.4, 16]} /></mesh>
+          <mesh position={[0, 0.52, 0]} material={m.steel} castShadow><sphereGeometry args={[0.3, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} /></mesh>
+          <mesh position={[0, 0.5, 0]} material={m.steel}><cylinderGeometry args={[0.3, 0.3, 0.12, 16]} /></mesh>
+        </group>
+      )
+    }
     if (o.kind === 'skylight') {
       return (
         <group key={i} position={[o.x, y, o.z]}>
@@ -221,6 +230,66 @@ export function FlatBuilding({ layout, params }) {
       </mesh>
       <Parapet L={L} W={W} H={H} h={parapet} material={m.wallFlat} />
       <Facades L={L} W={W} floors={params.floors} />
+    </group>
+  )
+}
+
+/** Industrial shed (PEB): metal-clad walls on a brick dado, gable spans with metal sheet roofs,
+ *  polycarbonate skylight strips, cleaning walkways, ridge caps, valley gutters and roller shutters. */
+export function IndustrialShed({ layout }) {
+  const m = materials()
+  const { L } = layout
+  const { H, spans, span: S, a, rise, W, skylights, walkways } = layout.building
+  const lift = 0.025
+  const parts = useMemo(() => {
+    const faces = []
+    const ends = []
+    const strips = []
+    const ridges = []
+    const N = (sz) => [0, Math.cos(a), sz * Math.sin(a)]
+    for (let i = 0; i < spans; i++) {
+      const zc = -W / 2 + S * (i + 0.5)
+      const R = H + rise
+      for (const sz of [1, -1]) {
+        const ze = zc + (sz * S) / 2
+        const V = [0, Math.sin(a), -sz * Math.cos(a)]
+        faces.push({ pts: [[-L / 2 - 0.3, H, ze], [L / 2 + 0.3, H, ze], [L / 2 + 0.3, R, zc], [-L / 2 - 0.3, R, zc]], U: [1, 0, 0], V })
+        const n = N(sz)
+        const up = (q, k) => [q[0] + n[0] * k, q[1] + n[1] * k, q[2] + n[2] * k]
+        for (const sk of skylights) {
+          strips.push({ mat: 'polycarb', pts: [[sk.x - sk.w / 2, H, ze], [sk.x + sk.w / 2, H, ze], [sk.x + sk.w / 2, R, zc], [sk.x - sk.w / 2, R, zc]].map((q) => up(q, lift)) })
+        }
+        for (const [x0, x1] of walkways) {
+          strips.push({ mat: 'grating', pts: [[x0, H, ze], [x1, H, ze], [x1, R, zc], [x0, R, zc]].map((q) => up(q, 0.06)) })
+        }
+      }
+      for (const x of [L / 2, -L / 2]) ends.push([[x, H, zc + S / 2], [x, H, zc - S / 2], [x, R - 0.02, zc]])
+      ridges.push([[-L / 2 - 0.3, R + 0.03, zc], [L / 2 + 0.3, R + 0.03, zc]])
+    }
+    const valleys = Array.from({ length: spans + 1 }, (_, i) => -W / 2 + i * S)
+    return { faces, ends, strips, ridges, valleys }
+  }, [L, H, spans, S, a, rise, W, skylights, walkways])
+  const wall = useMemo(() => {
+    const mat = m.metalWall.clone()
+    mat.map = repeated(textures().metalSheet, L / 2.5, 1)
+    return mat
+  }, [m, L])
+  const doors = Math.max(1, Math.round(L / 22))
+  return (
+    <group>
+      <mesh position={[0, H / 2, 0]} material={wall} castShadow receiveShadow><boxGeometry args={[L, H, W]} /></mesh>
+      <mesh position={[0, 0.75, 0]} material={m.brick} receiveShadow><boxGeometry args={[L + 0.06, 1.5, W + 0.06]} /></mesh>
+      {Array.from({ length: doors }, (_, i) => (
+        <group key={i} position={[-L / 2 + ((i + 0.5) * L) / doors, 0, W / 2 + 0.04]}>
+          <mesh position={[0, 2.75, 0]} material={m.shutter}><boxGeometry args={[5, 5.5, 0.06]} /></mesh>
+          <mesh position={[0, 5.65, 0.05]} material={m.darkSteel}><boxGeometry args={[5.4, 0.35, 0.3]} /></mesh>
+        </group>
+      ))}
+      {parts.ends.map((pts, i) => <Face key={`e${i}`} points={pts} material={wall} U={[0, 0, 1]} V={[0, 1, 0]} tile={2.5} />)}
+      {parts.faces.map((f, i) => <Face key={`f${i}`} points={f.pts} U={f.U} V={f.V} material={m.metalRoof} />)}
+      {parts.strips.map((st, i) => <Face key={`s${i}`} points={st.pts} U={[1, 0, 0]} V={[0, 0, 1]} material={m[st.mat]} />)}
+      {parts.ridges.map(([a1, b1], i) => <Strip key={`r${i}`} a={a1} b={b1} w={0.45} h={0.08} material={m.gutter} />)}
+      {parts.valleys.map((z, i) => <Strip key={`v${i}`} a={[-L / 2 - 0.3, H - 0.08, z]} b={[L / 2 + 0.3, H - 0.08, z]} w={0.4} h={0.18} material={m.gutter} />)}
     </group>
   )
 }

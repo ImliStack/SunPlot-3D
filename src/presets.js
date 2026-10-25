@@ -29,6 +29,7 @@ export const SITES = {
   lshape: { group: 'Homes', label: 'L-shaped house', short: 'L-shape', hint: 'Main wing plus a side wing, with valleys between' },
   shed: { group: 'Homes', label: 'House · mono-pitch', short: 'Mono-pitch', hint: 'One sloped roof plane' },
   flat: { group: 'Commercial', label: 'Flat-roof building', short: 'Flat roof', hint: 'Tilted racks in rows on a flat roof' },
+  industrial: { group: 'Commercial', label: 'Industrial shed (metal roof)', short: 'Factory', hint: 'Steel-frame factory or warehouse: low-slope metal sheets, skylights, turbo vents; modules flush on short rails' },
   airport: { group: 'Commercial', label: 'Airport terminal', short: 'Airport', hint: 'Terminal roof racks plus solar parking canopies' },
   carport: { group: 'Structures', label: 'Parking canopy', short: 'Carport', hint: 'Solar carports over parking bays (malls, offices, airports)' },
   busstop: { group: 'Structures', label: 'Bus shelter', short: 'Bus stop', hint: 'Solar roof on bus shelters and transit stations' },
@@ -119,7 +120,15 @@ export const DEFAULTS = {
   closeTrees: false, // mature trees right next to the site (shade study)
   elevated: true, // terrace: raised structure so the terrace stays usable
   terrace: null, // terrace: { outline, mumty, tank, neighbours, front, address } in site metres
+  // Industrial shed (PEB)
+  spans: 2, // gable spans side by side
+  span: 24, // m, width of one span
+  eave: 9, // m eave height
+  shedSlope: 6, // ° roof slope (1:10 ≈ 5.7°)
+  skylights: 4, // % of the roof length in polycarbonate strips
+  walkEvery: 10, // modules between cleaning walkways, 0 = none
   eastWest: false, // flat roofs: back-to-back east-west racks instead of rows facing the equator
+  roofing: 'shingle', // pitched roofs: shingle | clay (Mangalore tiles) | metal (sheets)
   tiles: false, // pitched roofs: roof-integrated solar tiles instead of rail-mounted modules
   // Electrical
   inverter: 'auto', // inverter model key, or auto
@@ -136,6 +145,22 @@ export const DEFAULTS = {
   loanShare: 0, // % of the net cost financed
   loanRate: 9.5, // % a year
   loanYears: 7,
+  // Who pays and how the meter works
+  buyer: 'home', // home | business (after tax, depreciation) | resco (developer owns, site buys power)
+  metering: 'net', // net (units banked over the year) | billing (net billing / feed-in) | gross
+  profile: 'auto', // load shape: auto | home | office | factory1 | factory3 | campus | hospital
+  bills: null, // 12 monthly kWh, or null to spread `useKwh` by the profile's seasons
+  zeroExport: false, // export limiter: solar never flows to the grid
+  dgKva: 0, // diesel generator on site, kVA (0 = none)
+  society: false, // housing society / RWA common-area plant
+  houses: 20, // houses in the society (subsidy counts 3 kW each)
+  todDisc: 0, // % cheaper grid power in ToD solar hours (C&I: 10–20 %), 0 = flat tariff
+  taxRate: 25.17, // % company tax (22 % + surcharge + cess, new regime)
+  ppaYears: 25,
+  roe: 14, // % developer return on equity (KERC norm)
+  debtShare: 70, // % of a RESCO plant's cost borrowed
+  debtRate: 10.8, // % interest
+  debtYears: 13,
   // Battery (backup)
   battLoad: 0, // kW of essential load to back up, 0 = no battery
   battHours: 4, // hours of backup
@@ -149,18 +174,19 @@ export const SHOWS = {
   floors: [...HOUSES, 'flat', 'airport', 'terrace'],
   elevated: ['terrace'],
   pitch: HOUSES,
-  bothFaces: ['gable', 'hip', 'lshape'],
-  ridge: HOUSES,
-  edge: [...HOUSES, 'flat', 'ground', 'airport', 'terrace'],
+  bothFaces: ['gable', 'hip', 'lshape', 'industrial'],
+  ridge: [...HOUSES, 'industrial'],
+  edge: [...HOUSES, 'flat', 'ground', 'airport', 'terrace', 'industrial'],
   rackTilt: ['flat', 'airport', 'terrace'],
   eastWest: ['flat', 'airport', 'terrace'],
   tiles: HOUSES,
+  roofing: HOUSES,
   groundTilt: ['ground'],
   clearance: ['ground'],
   stack: ['flat', 'ground', 'airport', 'terrace'],
   chimney: HOUSES,
   chimneyX: HOUSES,
-  vents: [...HOUSES, 'flat', 'airport'],
+  vents: [...HOUSES, 'flat', 'airport', 'industrial'],
   wingLength: ['lshape'],
   wingWidth: ['lshape'],
   bays: ['carport', 'airport'],
@@ -169,6 +195,12 @@ export const SHOWS = {
   canopyClear: ['carport', 'busstop', 'airport'],
   canopyTilt: ['carport', 'busstop', 'airport'],
   shelters: ['busstop'],
-  length: [...HOUSES, 'flat', 'ground', 'busstop', 'airport'],
+  length: [...HOUSES, 'flat', 'ground', 'busstop', 'airport', 'industrial'],
+  spans: ['industrial'],
+  span: ['industrial'],
+  eave: ['industrial'],
+  shedSlope: ['industrial'],
+  skylights: ['industrial'],
+  walkEvery: ['industrial'],
   width: [...HOUSES, 'flat', 'ground', 'busstop', 'airport'],
 }

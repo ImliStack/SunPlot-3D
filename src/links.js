@@ -10,6 +10,7 @@ const ENUMS = { site: SITES, panel: PANELS, climate: CLIMATES }
 function hashOf(params) {
   const q = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) {
+    if (Array.isArray(v) && v.length === 12 && v.every(Number.isFinite)) { q.set(k, v.map((x) => Math.round(x)).join('.')); continue } // monthly bills
     if (v === DEFAULTS[k] || (v && typeof v === 'object')) continue // outlines stay out of the URL
     q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : typeof v === 'number' ? String(Math.round(v * 100) / 100) : v)
   }
@@ -23,7 +24,10 @@ function paramsOf(hash) {
   for (const [k, raw] of q) {
     if (!(k in DEFAULTS)) continue
     const d = DEFAULTS[k]
-    if (typeof d === 'boolean') out[k] = raw === '1'
+    if (k === 'bills') {
+      const b = raw.split('.').map(Number)
+      if (b.length === 12 && b.every(Number.isFinite)) out[k] = b
+    } else if (typeof d === 'boolean') out[k] = raw === '1'
     else if (typeof d === 'number') {
       const n = Number(raw)
       if (Number.isFinite(n)) out[k] = n

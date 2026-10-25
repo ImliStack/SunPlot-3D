@@ -122,6 +122,43 @@ export function textures() {
         g.fillRect(0, y + h / rows - 2, w, 2)
       }
     }),
+    // Trapezoidal metal sheet: ribs every ~25 cm along the slope (texture u runs along the eave).
+    metalSheet: canvas(256, 64, (g, w, h) => {
+      g.fillStyle = '#b9c0c6'
+      g.fillRect(0, 0, w, h)
+      for (let x = 0; x < w; x += 25.6) {
+        const grad = g.createLinearGradient(x, 0, x + 25.6, 0)
+        grad.addColorStop(0, 'rgba(255,255,255,.35)')
+        grad.addColorStop(0.18, 'rgba(255,255,255,.05)')
+        grad.addColorStop(0.3, 'rgba(0,0,0,.18)')
+        grad.addColorStop(0.42, 'rgba(0,0,0,0)')
+        grad.addColorStop(1, 'rgba(0,0,0,0)')
+        g.fillStyle = grad
+        g.fillRect(x, 0, 25.6, h)
+      }
+    }),
+    // Mangalore (clay) tiles: terracotta rows with a rounded lip.
+    clay: canvas(256, 256, (g, w, h) => {
+      g.fillStyle = '#9c4a2c'
+      g.fillRect(0, 0, w, h)
+      const rows = 8
+      const cols = 6
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = (c * w) / cols
+          const y = (r * h) / rows
+          const shade = 0.88 + ((c * 5 + r * 3) % 7) / 35
+          const grad = g.createLinearGradient(x, 0, x + w / cols, 0)
+          grad.addColorStop(0, `rgb(${150 * shade}, ${70 * shade}, ${42 * shade})`)
+          grad.addColorStop(0.5, `rgb(${196 * shade}, ${98 * shade}, ${60 * shade})`)
+          grad.addColorStop(1, `rgb(${140 * shade}, ${64 * shade}, ${38 * shade})`)
+          g.fillStyle = grad
+          g.fillRect(x + 1, y + 1, w / cols - 2, h / rows - 4)
+        }
+        g.fillStyle = 'rgba(40,10,0,.35)'
+        g.fillRect(0, ((r + 1) * h) / rows - 3, w, 3)
+      }
+    }),
     membrane: canvas(128, 128, (g, w, h) => {
       g.fillStyle = '#d9d6cf'
       g.fillRect(0, 0, w, h)
@@ -151,7 +188,7 @@ export function textures() {
       }
     }),
   }
-  for (const k of ['shingles', 'membrane', 'grass', 'gravel', 'plaster', 'asphalt', 'concrete', 'brick', 'curtain']) {
+  for (const k of ['shingles', 'metalSheet', 'clay', 'membrane', 'grass', 'gravel', 'plaster', 'asphalt', 'concrete', 'brick', 'curtain']) {
     cache[k].wrapS = cache[k].wrapT = THREE.RepeatWrapping
   }
   return cache

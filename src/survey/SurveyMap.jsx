@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useSolar } from '../store.js'
 import { Protocol } from 'pmtiles'
-import { toLngLat, centroid, mPerDegLon } from './geo.js'
+import { toLngLat, centroid, mPerDegLon, openRing } from './geo.js'
 import { buildingsUrl, OVERTURE_LAYER, OVERTURE_ATTRIBUTION, outerRing } from './overture.js'
 import { reverse } from './places.js'
 import { POI_CATS, PLACES_LAYER, placesUrl, poiFilter, categoryOf, brandOf } from './poi.js'
@@ -130,8 +130,20 @@ function chooseBuilding(m, f, extra = {}) {
   const ring = outerRing(f.geometry)
   if (!ring) return false
   const floors = Number(f.properties.num_floors) || (Number(f.properties.height) ? Math.round(Number(f.properties.height) / LEVEL_M) : null)
+  const id = String(f.properties.id ?? f.id ?? ring[0].join(','))
   useSolar.getState().patchSurvey({ ring, levels: floors, neighbours: neighboursFrom(m, ring, f.properties.id ?? f.id), ...extra })
+  toggleCampus({ id, ring, levels: floors })
   return true
+}
+
+/** Campus mode: every picked building joins (or, picked again, leaves) the campus list. */
+function toggleCampus(b) {
+  const s = useSolar.getState().survey
+  if (!s.campusMode) return
+  const list = s.campus ?? []
+  const same = (x) => x.id === b.id || (x.ring.length === b.ring.length && x.ring[0][0] === b.ring[0][0] && x.ring[0][1] === b.ring[0][1])
+  const next = list.some(same) ? list.filter((x) => !same(x)) : [...list, { ...b, name: `Block ${String.fromCharCode(65 + (list.length % 26))}` }]
+  useSolar.getState().patchSurvey({ campus: next })
 }
 
 /** Fill in the address (and state, for the subsidy) for a point, quietly. */
@@ -252,7 +264,11 @@ export default function SurveyMap({ panels, recommended, module }) {
         paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(17,20,26,.85)', 'text-halo-width': 1.6 } })
       m.on('mouseenter', 'poi-dot', () => { m.getCanvas().style.cursor = 'pointer' })
       m.on('mouseleave', 'poi-dot', () => { m.getCanvas().style.cursor = '' })
-      for (const id of ['bld', 'sel', 'mods', 'draft']) m.addSource(id, { type: 'geojson', data: fc([]) })
+      for (const id of ['bld', 'sel', 'mods', 'draft', 'campus']) m.addSource(id, { type: 'geojson', data: fc([]) })
+      m.addLayer({ id: 'campus-fill', type: 'fill', source: 'campus', paint: { 'fill-color': '#3f9a5c', 'fill-opacity': 0.28 } })
+      m.addLayer({ id: 'campus-line', type: 'line', source: 'campus', paint: { 'line-color': '#7ee2a0', 'line-width': 2 } })
+      m.addLayer({ id: 'campus-label', type: 'symbol', source: 'campus', layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12 },
+        paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(20,60,35,.9)', 'text-halo-width': 1.6 } })
       m.addLayer({ id: 'bld-fill', type: 'fill', source: 'bld', paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.12 } })
       m.addLayer({ id: 'bld-line', type: 'line', source: 'bld', paint: { 'line-color': '#ffffff', 'line-width': 1, 'line-opacity': 0.7 } })
       m.addLayer({ id: 'sel-fill', type: 'fill', source: 'sel', paint: { 'fill-color': '#f2b33d', 'fill-opacity': 0.25 } })
@@ -285,10 +301,13 @@ export default function SurveyMap({ panels, recommended, module }) {
         if (!f) return
         if (f.layer.id === 'bld-fill') {
           const b = s.buildings.find((x) => x.id === f.properties.id)
-          if (b) patchSurvey({ ring: b.ring, levels: b.levels, neighbours: neighboursFrom(m, b.ring, null) })
+          if (b) {
+            patchSurvey({ ring: b.ring, levels: b.levels, neighbours: neighboursFrom(m, b.ring, null) })
+            toggleCampus({ id: `osm${b.id}`, ring: b.ring, levels: b.levels })
+          }
           return
         }
-        chooseBuilding(m, f, { poi: null })
+        chooseBuilding(m, f, s.campusMode ? {} : { poi: null })
       } else if (s.tool === 'draw') {
         const first = s.draft[0]
         if (first && s.draft.length >= 3) {
@@ -325,6 +344,7 @@ export default function SurveyMap({ panels, recommended, module }) {
     const m = map.current
     if (!m?.getSource('bld')) return
     m.getSource('bld').setData(fc(sv.buildings.map((b) => poly(b.ring.slice(0, -1), { id: b.id }))))
+    m.getSource('campus')?.setData(fc((sv.campusMode ? sv.campus ?? [] : []).map((b) => poly(openRing(b.ring), { name: b.name }))))
     const roofH = floors * 3 + 0.3
     m.getSource('sel').setData(fc(sv.ring ? [poly(sv.ring[0][0] === sv.ring[sv.ring.length - 1][0] && sv.ring[0][1] === sv.ring[sv.ring.length - 1][1] ? sv.ring.slice(0, -1) : sv.ring, { h: roofH })] : []))
     const draft = sv.draft

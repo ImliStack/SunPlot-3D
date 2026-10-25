@@ -6,6 +6,8 @@ import Icon from './ui/Icon.jsx'
 import TagLayer from './ui/TagLayer.jsx'
 import Proposal from './ui/Proposal.jsx'
 import Exports from './ui/Exports.jsx'
+import ClientPanel from './ui/ClientPanel.jsx'
+import Projects from './ui/Projects.jsx'
 import PanelToggles from './ui/PanelToggles.jsx'
 
 // The map-based survey (MapLibre) loads only when someone opens it.
@@ -29,6 +31,7 @@ function Tools() {
   const layers = useSolar((s) => s.layers)
   const hq = useSolar((s) => s.hq)
   const focus = useSolar((s) => !s.panels.left && !s.panels.right)
+  const client = useSolar((s) => !!s.client)
   const [copied, setCopied] = useState(false)
   const tool = (icon, tip, onClick, on = false) => (
     <button className={`tool ${on ? 'is-on' : ''}`} onClick={onClick} aria-label={tip} aria-pressed={on} data-tip={tip}>
@@ -63,8 +66,9 @@ function Tools() {
         {tool('focus', 'Focus mode — hide both panels · \\', () => st.togglePanel('focus'), focus)}
         {tool('hq', hq ? 'High quality (ambient occlusion) on' : 'High quality off — faster', st.toggleHq, hq)}
         {tool(theme === 'dark' ? 'sun' : 'moon', theme === 'dark' ? 'Light theme' : 'Dark theme', st.toggleTheme)}
-        <Proposal />
-        <Exports />
+        {!client && <Projects />}
+        {!client && <Proposal />}
+        {!client && <Exports />}
         {tool('camera', 'Save image', st.takeSnapshot)}
         {tool(copied ? 'check' : 'link', copied ? 'Link copied' : 'Copy link to this design', share)}
       </div>
@@ -288,15 +292,16 @@ export default function App() {
   useShadingStudy()
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   const mode = useSolar((s) => s.mode)
+  const client = useSolar((s) => !!s.client)
   return (
-    <div className={`app ${mode === 'survey' ? 'is-survey' : ''} ${panels.left ? '' : 'no-left'} ${panels.right ? '' : 'no-right'}`}>
+    <div className={`app ${client ? 'is-client' : ''} ${mode === 'survey' ? 'is-survey' : ''} ${panels.left ? '' : 'no-left'} ${panels.right ? '' : 'no-right'}`}>
       {mode === 'survey' ? (
         <Suspense fallback={<div className="empty">Loading the map…</div>}>
           <Survey />
         </Suspense>
       ) : (
         <>
-          <Inputs />
+          {client ? <ClientPanel /> : <Inputs />}
           <main className="stage">
             <StageBoundary><Stage /></StageBoundary>
             <TagLayer />
@@ -304,7 +309,7 @@ export default function App() {
             <PanelToggles />
             <HudCompass />
             <Legend />
-            <InstallBar />
+            {!client && <InstallBar />}
             <WeatherEffect />
             <SunBar />
           </main>

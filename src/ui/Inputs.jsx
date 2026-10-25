@@ -202,13 +202,30 @@ export default function Inputs() {
 
       <Section title={structure} icon={isHouse ? 'home' : SITES[p.site] ? p.site : 'ruler'}>
         <Field k="length" label={p.site === 'busstop' ? 'Shelter length' : p.site === 'airport' ? 'Terminal length' : HOUSES.includes(p.site) && p.site !== 'shed' ? 'Length (along ridge)' : 'Length'}
-          min={p.site === 'busstop' ? 3 : 4} max={p.site === 'airport' ? 600 : p.site === 'ground' ? 300 : 80} step={0.5} unit="m" />
+          min={p.site === 'busstop' ? 3 : 4} max={p.site === 'airport' ? 600 : p.site === 'ground' ? 300 : p.site === 'industrial' ? 300 : 80} step={0.5} unit="m" />
+        <Field k="spans" label="Spans (gables side by side)" min={1} max={6} hint="Each span is one portal frame bay across the shed." />
+        <Field k="span" label="Span width" min={10} max={45} step={0.5} unit="m" />
+        <Field k="eave" label="Eave height" min={4} max={18} step={0.5} unit="m" />
+        <Field k="shedSlope" label="Roof slope" min={1} max={15} step={0.5} unit="°" hint="PEB roofs are usually 1:10 (5.7°) to 1:20 (2.9°)." />
+        <Field k="skylights" label="Skylight strips" min={0} max={20} unit="% of length" hint="Polycarbonate sheets stay clear: no modules on or beside them." />
+        <Field k="walkEvery" label="Walkway every" min={0} max={30} unit="modules" hint="0.6 m cleaning walkways from eave to ridge; 0 = none." />
         <Field k="width" label={p.site === 'busstop' ? 'Shelter depth' : p.site === 'airport' ? 'Terminal depth' : 'Width'}
           min={p.site === 'busstop' ? 1.5 : 4} max={p.site === 'airport' ? 200 : p.site === 'ground' ? 200 : p.site === 'busstop' ? 5 : 60} step={0.1} unit="m" />
         <Field k="wingLength" label="Wing length (beyond main)" min={3} max={20} step={0.5} unit="m" />
         <Field k="wingWidth" label="Wing width" min={3} max={14} step={0.5} unit="m" />
         <Field k="floors" label="Floors" min={1} max={p.site === 'flat' ? 12 : p.site === 'airport' ? 6 : 4} />
         <Field k="pitch" label="Roof pitch" min={5} max={50} unit="°" />
+        {isHouse && (
+          <label className="field">
+            <span className="field-head"><span className="field-label">Roof covering</span></span>
+            <div className="seg small" role="radiogroup" aria-label="Roof covering">
+              {[['shingle', 'Shingles'], ['clay', 'Mangalore tiles'], ['metal', 'Metal sheets']].map(([k, label]) => (
+                <button key={k} role="radio" aria-checked={p.roofing === k} className={p.roofing === k ? 'is-on' : ''} onClick={() => set('roofing', k)}>{label}</button>
+              ))}
+            </div>
+            {p.roofing === 'clay' && <span className="field-hint">Clay tiles: tiles are lifted for stainless hooks, then relaid — allow for breakage.</span>}
+          </label>
+        )}
         <Field k="shelters" label="Shelters" min={1} max={8} />
         <Field k="bays" label="Bays per canopy side" min={2} max={60} hint="2.5 m × 5 m bays; columns every 3 bays." />
         <Field k="canopyRows" label="Canopy rows" min={1} max={12} />
@@ -217,6 +234,12 @@ export default function Inputs() {
         <Field k="canopyTilt" label="Canopy tilt" min={0} max={15} unit="°" />
         <Field k="azimuth" label={isHouse ? 'Main roof faces' : 'Array faces'} min={0} max={359} format={(v) => `° ${compass(v)}`} hint="Compass bearing: 180° is due south." />
       </Section>
+
+      {p.site === 'industrial' && (
+        <Section title="Roof obstacles" icon="zone">
+          <Field k="vents" label="Turbo ventilators" min={0} max={40} hint="On the ridges, inside the ridge setback." />
+        </Section>
+      )}
 
       {(isHouse || ['flat', 'airport'].includes(p.site)) && (
         <Section title="Roof obstacles" icon="zone">

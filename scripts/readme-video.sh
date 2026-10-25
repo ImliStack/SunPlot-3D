@@ -34,6 +34,9 @@ done
 js "window.__solar.getState().setTab('electrical'); 'ok'"; cap 3
 js "window.__solar.getState().setTab('money'); 'ok'"; cap 3
 js "window.__solar.getState().setTab('system'); 'ok'"; cap 1
+js "window.__solar.getState().setInstallMode('auto'); window.__solar.getState().setSite('industrial'); 'ok'"; cap 4
+js "window.__solar.getState().patch({ buyer: 'business', useKwh: 40000, metering: 'billing', todDisc: 20 }); window.__solar.getState().setTab('money'); 'ok'"; cap 3
+js "window.__solar.getState().patch({ buyer: 'home', useKwh: 0, metering: 'net', todDisc: 0 }); window.__solar.getState().setTab('system'); window.__solar.getState().setSite('flat'); window.__solar.getState().setInstallMode('auto'); 'ok'"; cap 1
 js "window.__solar.getState().set('weather', 'snow'); 'ok'"; cap 3
 js "window.__solar.getState().set('weather', 'auto'); window.__solar.getState().setInstallMode('auto'); window.__solar.getState().setMode('survey'); window.__solar.getState().patchSurvey({ center: [75.8115, 26.8535], pin: [75.8115, 26.8535], address: 'Malviya Nagar, Jaipur', state: 'Rajasthan' }); 'ok'"
 cap 4

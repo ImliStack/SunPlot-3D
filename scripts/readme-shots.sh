@@ -67,6 +67,20 @@ places() {
   echo "ok $name"
 }
 
+# Campus: three blocks picked on the survey map and summed.
+campus() {
+  n=$((n+1))
+  b goto "http://localhost:5181/?s=$n" >/dev/null; sleep 4
+  b js "window.__solar.getState().setMode('survey'); 'ok'" >/dev/null; sleep 3
+  b js "window.__solar.getState().patchSurvey({ center: [75.8073, 26.8540], pin: [75.8073, 26.8540], address: 'Malviya Nagar, Jaipur', state: 'Rajasthan', campusMode: true, map3d: false }); 'ok'" >/dev/null
+  for i in $(seq 1 20); do sleep 2; c=$(b js "window.__surveyMap ? window.__surveyMap.queryRenderedFeatures({ layers: ['ov-fill'] }).length : 0" 2>/dev/null | tail -1); [ "${c:-0}" -gt 5 ] 2>/dev/null && break; done
+  b js "const m = window.__surveyMap; const c = m.getCenter(); const fs = m.queryRenderedFeatures({ layers: ['ov-fill'] }).map(f => { const r = f.geometry.type === 'Polygon' ? f.geometry.coordinates[0] : f.geometry.coordinates[0][0]; const x = r.reduce((s,p)=>s+p[0],0)/r.length, y = r.reduce((s,p)=>s+p[1],0)/r.length; return { x, y, d: Math.hypot(x - c.lng, y - c.lat) } }).sort((a,b)=>a.d-b.d); const seen = []; for (const t of fs) { if (seen.length >= 4) break; if (seen.some(s => Math.hypot(s.x-t.x, s.y-t.y) < 1e-5)) continue; seen.push(t); m.fire('click', { point: m.project([t.x, t.y]), lngLat: { lng: t.x, lat: t.y }, originalEvent: {} }) } 'ok'" >/dev/null
+  sleep 10
+  b screenshot --viewport "$OUT/survey-campus.png" >/dev/null
+  sips -s format jpeg -s formatOptions 82 "$OUT/survey-campus.png" --out "$OUT/survey-campus.jpg" >/dev/null && rm "$OUT/survey-campus.png"
+  echo "ok survey-campus"
+}
+
 b viewport 1440x900 >/dev/null
 prefs light
 shot overview-light "#day=172&hour=10" 9
@@ -83,6 +97,10 @@ shot electrical "#site=flat&day=172&hour=10&battLoad=3" 9 "window.__solar.getSta
 shot money "#site=flat&day=172&hour=10&loanShare=60" 9 "window.__solar.getState().setTab('money'); 'x'"
 shot solar-tiles "#site=hip&tiles=1&day=172&hour=10" 10
 shot east-west "#site=flat&eastWest=1&day=172&hour=10" 9
+shot industrial "#site=industrial&day=172&hour=10" 10 "window.__solar.getState().setSite('industrial'); 'x'"
+shot money-business "#site=industrial&day=172&hour=10&buyer=business&useKwh=40000&metering=billing&todDisc=20&tariff=9&exportRate=3.5" 10 "window.__solar.getState().setSite('industrial'); window.__solar.getState().patch({ buyer: 'business', useKwh: 40000, metering: 'billing', todDisc: 20, tariff: 9, exportRate: 3.5 }); window.__solar.getState().setTab('money'); 'x'"
+shot money-resco "#site=flat&day=172&hour=10&buyer=resco&tariff=8" 10 "window.__solar.getState().setTab('money'); 'x'"
+shot customer-view "&view=client&co=Surya%20Power%20Solutions&ph=%2B91%2098290%2000000&em=sales%40suryapower.in&cl=0f5132&for=Mr%20Shah#site=industrial&day=172&hour=10&buyer=business&useKwh=40000&metering=billing&todDisc=20" 12
 shot exports "#site=flat&day=172&hour=10" 8 "document.querySelector('[aria-label=\"Export files\"]').click(); 'x'"
 shot snow "#lat=59.9&lon=10.75&placeName=Oslo&place=&day=20&hour=12&climate=cloudy" 12
 shot rain "#place=mumbai&placeName=Mumbai&lat=19.1&lon=72.88&climate=monsoon&day=196&hour=11&site=flat" 11
@@ -92,6 +110,7 @@ survey survey-studio studio
 places survey-places list
 places survey-3d 3d
 places studio-hospital studio
+campus
 prefs dark
 shot overview-dark "#day=172&hour=10" 9
 prefs light false false

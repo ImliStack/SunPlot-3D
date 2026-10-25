@@ -3,6 +3,7 @@ import { useSolar } from '../store.js'
 import { useLayout, useYield, useEngineering } from '../hooks.js'
 import { captureView, captureFrom, nextFrames } from '../scene/capture.js'
 import Icon from './Icon.jsx'
+import { customerLink } from './ClientPanel.jsx'
 
 const remember = (k, v) => { try { localStorage.setItem(k, v) } catch {} }
 const recall = (k) => { try { return localStorage.getItem(k) ?? '' } catch { return '' } }
@@ -16,6 +17,15 @@ export default function Proposal() {
   const [step, setStep] = useState(null)
   const [brand, setBrand] = useState(recallBrand)
   const [more, setMore] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyLink = async () => {
+    remember('solar-brand', JSON.stringify(brand))
+    try {
+      await navigator.clipboard.writeText(customerLink(brand, client.trim()))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch {}
+  }
   const layout = useLayout()
   const y = useYield(layout)
   const eng = useEngineering(layout, y)
@@ -104,6 +114,7 @@ export default function Proposal() {
             {step && !step.startsWith('Could') ? <><span className="spinner" />{step}</> : <><Icon name="doc" size={16} />Download PDF</>}
           </button>
           {step?.startsWith('Could') && <span className="field-hint">{step}</span>}
+          <button className="link-btn" onClick={copyLink}><Icon name={copied ? 'check' : 'link'} size={14} /> {copied ? 'Customer link copied' : 'Copy customer link (read-only 3D page)'}</button>
         </div>
       )}
     </div>

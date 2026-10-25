@@ -19,6 +19,17 @@ function storedPanels() {
   return { left: true, right: true }
 }
 
+/** A customer link (?view=client&co=…): read-only page with the installer's name and contact. */
+function clientLink() {
+  try {
+    const q = new URLSearchParams(location.search)
+    if (q.get('view') !== 'client') return null
+    return { company: q.get('co') ?? '', phone: q.get('ph') ?? '', email: q.get('em') ?? '', color: q.get('cl') ? `#${q.get('cl')}` : '', client: q.get('for') ?? '' }
+  } catch {
+    return null
+  }
+}
+
 // Starting sizes per site type, so switching type gives a sensible picture straight away.
 const EMPTY_SURVEY = {
   center: null, // [lon, lat] searched
@@ -37,6 +48,8 @@ const EMPTY_SURVEY = {
   poi: null, // the place being surveyed: { id, name, cat, brand, lon, lat }
   poiGo: 0, // bumped to fly to `poi` and pick its building
   map3d: false, // extruded 3D buildings on the survey map
+  campusMode: false, // pick several buildings (college, hospital, factory campus)
+  campus: [], // [{ id, name, ring, levels }]
   ring: null, // chosen roof outline
   neighbours: [], // Overture buildings around it: [{ ring, height }]
   draft: [], // points while drawing
@@ -62,6 +75,7 @@ export const SITE_SIZES = {
   carport: { panel: 'com550', portrait: true, bays: 12, canopyRows: 2, doubleRow: true, canopyClear: 3, canopyTilt: 5 },
   busstop: { length: 10, width: 2.8, panel: 'res430', portrait: false, shelters: 2, canopyClear: 2.8, canopyTilt: 4 },
   ground: { length: 40, width: 26, edge: 2, panel: 'utl620', portrait: true, stack: 2 },
+  industrial: { length: 60, spans: 2, span: 24, eave: 9, shedSlope: 6, skylights: 4, walkEvery: 10, edge: 0.6, ridge: 0.6, panel: 'dcr580', portrait: true, vents: 8, bothFaces: true },
 }
 
 export const useSolar = create((set, get) => ({
@@ -83,6 +97,7 @@ export const useSolar = create((set, get) => ({
   install: { ...EMPTY_INSTALL },
   // App mode: the 3D design studio, or the map-based site survey.
   mode: 'studio',
+  client: clientLink(), // non-null on a customer link
   // Site survey, all in [lon, lat]: chosen building ring, stair room / tank points, neighbours, bill.
   survey: { ...EMPTY_SURVEY },
   // Module under the pointer in click-to-install mode (index into the candidate layout).

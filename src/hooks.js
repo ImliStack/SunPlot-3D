@@ -4,13 +4,15 @@ import { computeLayout, selectModules } from './layout.js'
 import { estimateYield, estimateYieldMeasured, PERFORMANCE_RATIO } from './solar.js'
 import { CLIMATES, panelOf } from './presets.js'
 import { electricalDesign } from './electrical.js'
-import { finance } from './finance.js'
+import { finance, resco } from './finance.js'
+import { PROFILES, defaultProfile, monthlyFromAverage, hourlyLoad, hourlyGeneration, overlap } from './load.js'
 
 // The sun slider and day animation change `hour` / `day` every frame; the layout and yield
 // don't depend on them, so both are keyed on everything else.
 const VIEW_KEYS = new Set(['day', 'hour', 'surroundings', 'closeTrees', 'placeName', 'lon', 'cur', 'cost', 'tariff', 'co2', 'climate', 'cleanDays', 'weather',
   'inverter', 'invCount', 'dcRun', 'acRun', 'subsidy', 'escalation', 'discount', 'omPct', 'useKwh', 'exportRate',
-  'loanShare', 'loanRate', 'loanYears', 'battLoad', 'battHours', 'battPrice'])
+  'loanShare', 'loanRate', 'loanYears', 'battLoad', 'battHours', 'battPrice',
+  'buyer', 'zeroExport', 'dgKva', 'society', 'houses', 'metering', 'profile', 'bills', 'todDisc', 'taxRate', 'ppaYears', 'roe', 'debtShare', 'debtRate', 'debtYears'])
 export const designKey = (p) => Object.entries(p).filter(([k]) => !VIEW_KEYS.has(k)).map(([, v]) => (v && typeof v === 'object' ? JSON.stringify(v) : v)).join('|')
 
 /** Every array the site could take. In click-to-install mode that includes every roof plane. */
@@ -72,15 +74,36 @@ export function siteTemps(p, climate) {
   return { low: Math.round(Math.max(-30, 18 - 0.9 * lat)), high: lat < 35 ? 45 : 36, measured: false }
 }
 
+/** The site's monthly use (12 values) and its load shape, or null when no consumption is given. */
+export function siteUse(p, poiCat) {
+  const profile = PROFILES[p.profile] ? p.profile : defaultProfile(p.site, poiCat)
+  const months = Array.isArray(p.bills) && p.bills.length === 12 && p.bills.some((v) => v > 0)
+    ? p.bills
+    : p.useKwh > 0 ? monthlyFromAverage(p.useKwh, profile) : null
+  return { profile, months }
+}
+
 /** Electrical concept + 25-year finance for the current design. */
 export function useEngineering(layout, y) {
   const p = useSolar((s) => s.params)
   const climate = useSolar((s) => s.climate)
+  const poiCat = useSolar((s) => s.survey.poi?.cat)
+  // Hourly generation only changes with the energy model; the load with the bills and profile.
+  const gen = useMemo(() => (y.annual ? hourlyGeneration(y.arrays, p.lat, y.months) : null), [y.arrays, y.months, y.annual, p.lat])
+  const use = siteUse(p, poiCat)
+  const useKey = `${use.profile}|${use.months?.map((v) => Math.round(v)).join(',')}`
+  const mix = useMemo(() => {
+    if (!gen) return null
+    const load = use.months ? hourlyLoad(use.months, use.profile) : null
+    const o = overlap(gen, load)
+    return { ...o, useYear: use.months ? use.months.reduce((a, b) => a + b, 0) : 0, profile: use.profile, months: use.months }
+  }, [gen, useKey]) // eslint-disable-line react-hooks/exhaustive-deps
   return useMemo(() => {
     const temps = siteTemps(p, climate)
-    const heightM = (['gable', 'hip', 'lshape', 'shed', 'flat', 'airport', 'terrace'].includes(p.site) ? p.floors * 3 : 3) + 2
+    const heightM = (p.site === 'industrial' ? p.eave : ['gable', 'hip', 'lshape', 'shed', 'flat', 'airport', 'terrace'].includes(p.site) ? p.floors * 3 : 3) + 2
     const e = electricalDesign({ layout, module: panelOf(p), temps, p, heightM })
-    const f = finance({ annual: y.annual, kwp: layout.kwp, p, battery: e?.battery })
-    return { e, f, temps }
-  }, [layout, y.annual, p, climate])
+    const f = finance({ annual: y.annual, kwp: layout.kwp, p, battery: e?.battery, mix })
+    const ppa = p.buyer === 'resco' ? resco({ annual: y.annual, kwp: layout.kwp, p, mix }) : null
+    return { e, f, ppa, temps, mix }
+  }, [layout, y.annual, p, climate, mix])
 }

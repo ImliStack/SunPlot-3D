@@ -72,9 +72,10 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 > How SunPlot compares with Arka360, OpenSolar, Aurora, HelioScope, PV\*SOL and SolarEdge Designer: [docs/COMPETITORS.md](docs/COMPETITORS.md).
 
 **Design**
-- **Nine site types** — gable, hip, L-shaped and mono-pitch houses; flat roofs with tilted racks;
-  an airport terminal with forecourt car-park canopies; solar carports (T / Y frames); bus shelters;
-  ground-mounted tables.
+- **Ten site types** — gable, hip, L-shaped and mono-pitch houses (shingle, Mangalore clay tile or
+  metal roofs); flat roofs with tilted racks; **industrial sheds** (multi-span PEB metal roofs with
+  skylight strips, turbo ventilators and cleaning walkways, modules flush on short rails, roof-load
+  check); an airport terminal with car-park canopies; solar carports; bus shelters; ground mounts.
 - **Code-aware auto layout** — ridge and edge setbacks (IFC/IRC 18″ / 36″), hip and valley clearances,
   keep-outs round chimneys, vents, HVAC and stair housings; side planes under 4 modules are skipped.
 - **Rows that don't shade each other** — pitch set from the winter-solstice noon sun.
@@ -90,11 +91,19 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 - **Single-line diagram**: PV strings → DCDB → inverter (→ battery) → ACDB → net meter → grid.
 - **Cables and protection**: DC/AC cable sizes by ampacity and ≤ 1.5 % voltage drop, isolator, MCB/MCCB,
   string fuses, SPDs, earthing and lightning arrester.
-- **Backup battery** from essential load and hours (LFP), and a **bill of materials** (CSV).
+- **Backup battery** from essential load and hours (LFP), **DG-PV synchronisation** for sites with a
+  diesel generator, zero-export controllers, and a roof-aware **bill of materials** (CSV).
 
 **Money**
-- **25-year cash flow** with tariff escalation, degradation, O&M, an inverter swap, own use vs export,
-  subsidy (one-click PM Surya Ghar), **loan EMI**, **IRR, NPV, LCOE**, plus CO₂, trees and coal saved.
+- **Home, business or RESCO**: homes with PM Surya Ghar (or the ₹18,000/kW housing-society CFA on
+  3 kW per house, up to 500 kW); businesses **after tax** with 40 % accelerated depreciation;
+  **RESCO / PPA** solves the flat tariff that gives a developer its target return on equity
+  (KERC 2026–29 norms), with zero capex for the site.
+- **Real electricity use**: twelve monthly bills or an average, a load pattern (home, office, factory
+  one-shift or 24×7, college, hospital) matched **hour by hour** against solar; net metering, net
+  billing or gross metering; zero export; ToD solar-hour rebates.
+- **25-year cash flow** with tariff escalation, degradation, O&M, an inverter swap, **loan EMI**,
+  **IRR, NPV, LCOE**, plus CO₂, trees and coal saved, and step-by-step paperwork lists.
 
 **Energy**
 - **Ten years of NASA POWER weather** for any place on Earth — monthly irradiance, temperature, rain,
@@ -120,6 +129,8 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   DCR modules, PM Surya Ghar subsidy (₹78,000 cap, special-category states), cost after subsidy and payback.
 - **Where on the roof** — front / back / left / right / centre of the terrace ranked by shade from
   neighbouring buildings, the stair room, tank and parapet; the least-shaded spots drawn on the map.
+- **Campus mode** — pick several blocks (college buildings, hostels, hospital wings, factory sheds)
+  on the map and get a per-block and campus total, carried into the PDF.
 - **Survey public buildings** — filter schools, colleges, hospitals, banks, supermarkets (DMart, Big Bazaar,
   Reliance Smart…), malls, petrol pumps and hotels from Overture Maps places; pick one from the nearby list
   and SunPlot flies there, selects its building, sizes from a typical monthly use for that kind of site and
@@ -133,6 +144,10 @@ rain and the snow, and send the client a proposal in one click. No install, no p
 - **Branded client proposal (PDF)** — your company name, contact and colour; 3D view, north-up plan,
   arrays, monthly energy, loss waterfall, P90, site climate, electrical design with SLD and BOM, and
   25-year financials with loan, IRR and environmental impact, in one click.
+- **Projects** — save designs per customer in the browser, reopen, duplicate, mark one primary and
+  compare kWp, energy and payback side by side.
+- **Customer link** — a read-only 3D page with your company name, contact button and the headline
+  numbers, ready for WhatsApp.
 - **Exports** — CAD layout (.dxf, metres, north up), monthly and 8760-hour generation (.csv), bill of
   materials (.csv), the 3D model (.glb for Blender / SketchUp) and an 8-second orbit video (.webm).
 - **Real installations** — solar plants mapped in OpenStreetMap near your site, and landmark
@@ -178,6 +193,30 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   <tr>
     <td align="center"><sub><b>Solar roof tiles</b> — facet by facet, vs modules on rails</sub></td>
     <td align="center"><sub><b>East-west racking</b> — back-to-back 10° tents</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/industrial.jpg" alt="Two-span industrial shed with metal roof, skylights, walkways and modules on both slopes" /></td>
+    <td width="50%"><img src="docs/screenshots/money-business.jpg" alt="Money tab for a business: after-tax payback with accelerated depreciation and hourly load matching" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Industrial shed</b> — PEB metal roof, skylights, walkways</sub></td>
+    <td align="center"><sub><b>Business</b> — after tax, 40 % depreciation, ToD, net billing</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/money-resco.jpg" alt="RESCO / PPA tariff solved from developer return on equity" /></td>
+    <td width="50%"><img src="docs/screenshots/survey-campus.jpg" alt="Campus mode: several blocks picked on the survey map with a per-block table" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>RESCO / PPA</b> — zero-capex tariff for colleges and government</sub></td>
+    <td align="center"><sub><b>Campus mode</b> — every block, one total</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/customer-view.jpg" alt="Read-only customer page with installer branding and call button" /></td>
+    <td width="50%"><img src="docs/screenshots/exports.jpg" alt="Export menu" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Customer link</b> — branded, read-only 3D</sub></td>
+    <td align="center"><sub><b>Exports</b> — DXF, CSV, GLB, video</sub></td>
   </tr>
 </table>
 
@@ -460,8 +499,10 @@ permits and grid connection still need a qualified installer.
 - [x] 25-year cash flow with loan, IRR, NPV, LCOE; backup battery sizing; branded PDF
 - [x] Exports: DXF layout, monthly and 8760 h CSV, GLB 3D model, orbit video
 - [x] East-west racking and solar roof tiles (BIPV)
-- [ ] Saved projects with several designs per customer ([gap analysis](docs/COMPETITORS.md))
-- [ ] 12-month bill entry, EV / AC future load, time-of-use battery dispatch
+- [x] Industrial sheds, campus mode, business (after-tax) and RESCO finance, hourly load matching, DG sync
+- [x] Saved projects with several designs, customer link ([gap analysis](docs/GAPS-AND-PLAN.md))
+- [ ] Accounts, CRM pipeline, quotes and invoices (Phase B, needs a backend)
+- [ ] EV / heat-pump future load, time-of-use battery dispatch
 - [ ] DISCOM net-metering application pack (India)
 - [ ] Pitched roofs and multi-level terraces in the survey
 - [ ] Customer leads, e-sign and vendor quotes (separate backend)

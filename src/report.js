@@ -5,6 +5,8 @@ import { jsPDF } from 'jspdf'
 import { SITES, CLIMATES, panelOf } from './presets.js'
 import { MONTHS } from './solar.js'
 import { sldSvg } from './electrical.js'
+import { checklists } from './checklists.js'
+import { PROFILES } from './load.js'
 
 const W = 210
 const H = 297
@@ -273,6 +275,12 @@ export async function buildProposal(d) {
       [S.payback ? `${num(S.payback, 1)} yr` : '-', 'payback'],
     ], y, 15)
     y = para(`Subsidy per MNRE PM Surya Ghar: Rs 30,000/kW up to 2 kW, Rs 18,000 for the 3rd kW, max Rs 78,000 (higher in special-category states). It needs DCR modules with Indian-made cells on ALMM List-II and a DISCOM-registered vendor${S.state ? ` in ${S.state}` : ''} — see pmsuryaghar.gov.in.`, y, 8, MUTED)
+    if (S.campus) {
+      y = h2('Campus: every block surveyed', y + 4)
+      const tot = S.campus.reduce((a, r) => ({ m2: a.m2 + r.m2, kwp: a.kwp + r.kwp, kwh: a.kwh + r.kwh }), { m2: 0, kwp: 0, kwh: 0 })
+      y = table(['Block', 'Floors', 'Roof m²', 'Capacity', 'Energy / yr'],
+        [...S.campus.map((r) => [r.name, String(r.floors), num(r.m2), power(r.kwp), energy(r.kwh)]), ['Campus total', '', num(tot.m2), power(tot.kwp), energy(tot.kwh)]], y, [50, 20, 30, 38, 40])
+    }
     para('Surveyed remotely from satellite imagery and Overture / OpenStreetMap building outlines. Confirm roof strength, shade and wiring on site before installation.', y + 2, 8, MUTED)
   }
 
@@ -444,7 +452,7 @@ export async function buildProposal(d) {
     doc.addPage()
     y = heading('Electrical design', `${E.inverter.n} x ${E.inverter.label}`)
     y = tiles([
-      [`${E.strings} x ${E.L}`, 'strings x modules'],
+      [`${E.strings} x ${E.lengths}`, 'strings x modules'],
       [`${num(E.vocCold * E.L)} V`, `string Voc at ${E.temps.low} °C`],
       [num(E.dcac, 2), 'DC : AC ratio'],
       [E.ok ? 'Pass' : 'Check', 'string limits'],
@@ -476,7 +484,7 @@ export async function buildProposal(d) {
     y = h2('Cables and protection', y)
     y = table(['Item', 'Size / rating', 'Note'], [
       ['DC string cable', `${E.dc.mm2} mm² PV`, `${num(E.runs.dc)} m run, ${num(E.dc.drop * 100, 2)} % drop`],
-      ['AC cable', `${E.ac.mm2} mm² Cu`, `${num(E.runs.ac)} m run, ${num(E.ac.drop * 100, 2)} % drop, ${num(E.iAc, 1)} A`],
+      ['AC cable', `${E.ac.label} Cu`, `${num(E.runs.ac)} m run, ${num(E.ac.drop * 100, 2)} % drop, ${num(E.iAc, 1)} A`],
       ['DC isolator', `${E.protection.dcIsolator.v} V / ${E.protection.dcIsolator.a} A`, `SPD ${E.protection.dcSpd}`],
       ['AC breaker', `${E.protection.acBreaker} A${E.protection.mainBreaker ? ` (+ ${E.protection.mainBreaker} A main)` : ''}`, `SPD ${E.protection.acSpd}`],
       ...(E.protection.stringFuse ? [['String fuses', `${E.protection.stringFuse} A gPV`, '3+ strings in parallel']] : []),
@@ -491,6 +499,21 @@ export async function buildProposal(d) {
   }
 
   // ─── Page 5: financials ───
+  const PPA = d.eng?.ppa
+  if (PPA) {
+    doc.addPage()
+    y = heading('RESCO / PPA: zero capital cost', `${p.ppaYears}-year power purchase agreement`)
+    y = tiles([
+      [`${cur}${num(PPA.ppa, 2)}/kWh`, `flat PPA tariff, ${p.ppaYears} yr`],
+      [`${num(PPA.discountVsGrid * 100)} %`, 'cheaper than grid power'],
+      [money(PPA.firstYear), 'saved in year 1'],
+      [money(PPA.saved), `saved over ${p.ppaYears} yr`],
+    ], y)
+    y = para(`A developer builds, owns and maintains the ${power(L.kwp)} plant (about ${money(PPA.capex)}) and sells its power to the site at the tariff above; the site pays nothing upfront. The tariff gives the developer a ${num(p.roe, 1)} % return on equity with ${num(p.debtShare)} % debt at ${num(p.debtRate, 1)} % over ${p.debtYears} years. SECI's 2026 RESCO auctions for government buildings and universities cleared at Rs 2.94-3.97/kWh.`, y, 9)
+    y = table(['Year', 'Energy', 'Grid value', 'Paid to developer', 'Site saves'],
+      PPA.rows.filter((r) => [1, 2, 3, 5, 10, 15, 20, 25].includes(r.year)).map((r) => [String(r.year), energy(r.kwh), money(r.savings), money(r.paid), money(r.net)]), y + 2, [20, 34, 40, 44, 40])
+  }
+
   doc.addPage()
   y = heading('Financials', `${cur.trim()} · ${num(p.cost, 2)} per Wp · ${num(p.tariff, 2)} per kWh, +${num(p.escalation, 1)} %/yr`)
   y = tiles([
@@ -499,8 +522,16 @@ export async function buildProposal(d) {
     [money(F.net), 'net cost'],
     [F.payback != null ? `${num(F.payback, 1)} yr` : '> 25 yr', 'payback'],
   ], y)
+  if (F.business) {
+    y = tiles([
+      [`${num(F.tax * 100, 2)} %`, 'company tax rate'],
+      [money(F.adYear1), 'year-1 depreciation (40 % WDV)'],
+      [money(F.adYear1 * F.tax), 'tax saved in year 1'],
+      [`${num(F.selfUse * 100)} %`, 'of solar used on site'],
+    ], y, 15)
+  }
   y = tiles([
-    [F.irr != null ? `${num(F.irr * 100, 1)} %` : '-', 'IRR (25 yr)'],
+    [F.irr != null ? `${num(F.irr * 100, 1)} %` : '-', F.business ? 'IRR after tax' : 'IRR (25 yr)'],
     [money(F.npv), `NPV at ${num(p.discount, 1)} %`],
     [`${cur}${num(F.lcoe, 2)}`, 'LCOE per kWh'],
     [money(F.gain25), '25-year net gain'],
@@ -551,6 +582,7 @@ export async function buildProposal(d) {
   y = h2('Assumptions & sources', y + 2)
   const assumptions = [
     `Modules: ${m.label}, ${m.note}. ${E ? `Inverters: ${E.inverter.n} x ${E.inverter.label}, DC:AC ${num(E.dcac, 2)}.` : ''} Output -1 % in year 2 then -0.4 %/yr.`,
+    `Use: ${d.eng?.mix?.useYear ? `${num(d.eng.mix.useYear)} kWh a year, ${PROFILES[d.eng.mix.profile]?.label.toLowerCase()} load pattern, matched hour by hour (${num(d.eng.mix.selfShare * 100)} % of solar used as it is made)` : 'not given'}; ${{ net: 'net metering (units banked over the year)', billing: 'net billing', gross: 'gross metering' }[p.metering]}${p.zeroExport ? ', zero export' : ''}${p.todDisc ? `; ToD solar-hour rebate ${num(p.todDisc)} %` : ''}.`,
     `Money: tariff ${num(p.tariff, 2)} rising ${num(p.escalation, 1)} %/yr${p.useKwh ? `; ${num(p.useKwh)} kWh/month used on site, surplus at ${num(p.exportRate || p.tariff * 0.4, 2)}/kWh` : '; all solar energy valued at the tariff (net metering)'}; O&M ${num(p.omPct, 1)} % of cost a year rising 5 %/yr; inverter replacement (~10 % of cost) in year 12; discount rate ${num(p.discount, 1)} %.`,
     measured
       ? 'Weather: NASA POWER monthly means (CERES / MERRA-2) for the last ten complete years. Horizontal irradiation split into beam and diffuse (Collares-Pereira & Rabl) and transposed per plane (isotropic sky, albedo 0.2). Temperature loss -0.35 %/°C above 25 °C cell; 14 % system losses.'
@@ -562,6 +594,19 @@ export async function buildProposal(d) {
   ]
   assumptions.forEach((a) => { y = para(`- ${a}`, y, 7.8, INK) })
   y = para('This is a concept proposal, not an engineering design. Structural capacity, electrical design, local codes, permits, grid connection and final pricing must be confirmed by a site survey and a qualified installer.', y + 2, 7.8, MUTED)
+
+  const lists = checklists(p)
+  if (lists.length) {
+    doc.addPage()
+    y = heading('Next steps & documents', place)
+    lists.forEach((c) => {
+      y = room(y, 12 + c.items.length * 6, 'Next steps & documents', 'continued')
+      y = h2(c.title, y)
+      c.items.forEach((it, i) => { y = para(`${i + 1}. ${it}`, y, 8.8) })
+      y += 3
+    })
+    para('Rules differ by state and DISCOM; confirm the current process on pmsuryaghar.gov.in and with your DISCOM before applying.', y, 7.5, MUTED)
+  }
 
   // Footer on every page.
   const pages = doc.getNumberOfPages()

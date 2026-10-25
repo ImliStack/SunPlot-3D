@@ -28,9 +28,14 @@ const next = (list, v) => list.find((x) => x >= v) ?? list[list.length - 1]
 
 /** Smallest cable that carries `amps` and keeps the drop at or under `limit` (fraction). */
 function cable(table, amps, dropOf, limit) {
-  for (const [mm2, rating] of table) if (rating >= amps && dropOf(mm2) <= limit) return { mm2, drop: dropOf(mm2), rating }
+  // Heavy feeders run as parallel cables (up to 4), each carrying its share of the current.
+  for (let runs = 1; runs <= 4; runs++) {
+    for (const [mm2, rating] of table) {
+      if (rating * runs >= amps && dropOf(mm2 * runs) <= limit) return { mm2, runs, drop: dropOf(mm2 * runs), rating, label: `${runs > 1 ? `${runs} × ` : ''}${mm2} mm²` }
+    }
+  }
   const [mm2, rating] = table[table.length - 1]
-  return { mm2, drop: dropOf(mm2), rating, over: true }
+  return { mm2, runs: 4, drop: dropOf(mm2 * 4), rating, over: true, label: `4 × ${mm2} mm²` }
 }
 
 /** The inverter class and count for `kwp`: fewest units at a DC:AC ratio between 0.8 and 1.3. */
@@ -69,19 +74,18 @@ export function electricalDesign({ layout, module: m, temps, p, heightM = 6 }) {
   const maxLen = Math.max(1, Math.floor(Math.min(inv.vmax / vocCold, inv.mpptMax / vmpCold)))
   const minLen = Math.max(1, Math.ceil(inv.mpptMin / vmpHot))
 
-  // Equal strings per inverter; take the length that strings the most modules (longer on a tie).
-  const perInv = Math.floor(count / n)
-  let best = null
-  for (let L = Math.min(maxLen, perInv); L >= minLen; L--) {
-    const strings = Math.floor(perInv / L)
-    if (!strings) continue
-    const used = strings * L * n
-    if (!best || used > best.used) best = { L, strings, used }
-  }
-  const L = best?.L ?? Math.min(maxLen, perInv)
-  const stringsPerInv = best?.strings ?? 1
+  // Inverters share the modules (counts differ by at most one). Each takes the fewest strings
+  // that keep every string inside the voltage window; strings are `Lmin` or `Lmax` long, and
+  // strings of one length share an MPPT.
+  const perInvMax = Math.ceil(count / n)
+  const perInvMin = Math.floor(count / n)
+  const stringsPerInv = Math.max(1, Math.ceil(perInvMax / maxLen))
+  const Lmax = Math.ceil(perInvMax / stringsPerInv)
+  const Lmin = Math.floor(perInvMin / stringsPerInv)
+  const fits = Lmin >= minLen && Lmax <= maxLen
+  const L = Lmax
   const perMppt = Math.ceil(stringsPerInv / inv.mppts)
-  const used = best?.used ?? 0
+  const used = fits ? count : 0
   const loose = count - used
 
   // Currents and checks.
@@ -91,19 +95,20 @@ export function electricalDesign({ layout, module: m, temps, p, heightM = 6 }) {
   const dcac = kwp / (n * inv.ac)
   const checks = [
     { label: 'String Voc at record cold', value: `${(vocCold * L).toFixed(0)} V`, limit: `≤ ${inv.vmax} V`, ok: vocCold * L <= inv.vmax },
-    { label: 'String Vmp on a hot afternoon', value: `${(vmpHot * L).toFixed(0)} V`, limit: `≥ ${inv.mpptMin} V MPPT min`, ok: vmpHot * L >= inv.mpptMin },
+    { label: 'String Vmp on a hot afternoon', value: `${(vmpHot * Lmin).toFixed(0)} V`, limit: `≥ ${inv.mpptMin} V MPPT min`, ok: vmpHot * Lmin >= inv.mpptMin },
     { label: 'String Vmp in the cold', value: `${(vmpCold * L).toFixed(0)} V`, limit: `≤ ${inv.mpptMax} V MPPT max`, ok: vmpCold * L <= inv.mpptMax },
     { label: 'Current per MPPT', value: `${iMppt.toFixed(1)} A`, limit: `≤ ${inv.imax} A`, ok: iMppt <= inv.imax },
     { label: 'DC : AC ratio', value: dcac.toFixed(2), limit: '0.8 – 1.3', ok: dcac >= 0.8 && dcac <= 1.3 },
     { label: 'Orientations vs MPPT inputs', value: `${orientations}`, limit: `≤ ${inv.mppts * n}`, ok: orientations <= inv.mppts * n },
   ]
-  if (loose) checks.push({ label: 'Modules left off strings', value: `${loose}`, limit: 'remove, or change inverter', ok: false, warn: true })
+  if (loose) checks.push({ label: 'Modules left off strings', value: `${loose}`, limit: 'too few for one string: change inverter', ok: false, warn: true })
+  if (Lmax !== Lmin && inv.mppts * n < 2) checks.push({ label: 'Mixed string lengths on one MPPT', value: `${Lmin} and ${Lmax}`, limit: 'needs 2+ MPPT inputs', ok: false })
 
   // Cable runs: roof to the inverter at ground level, then to the meter.
   const span = Math.sqrt(layout.moduleArea || 1)
   const dcRun = p.dcRun || Math.round(heightM + span / 2 + 5)
   const acRun = p.acRun || Math.round(10 + kwp / 20)
-  const vString = vmpHot * L
+  const vString = vmpHot * Lmin
   const dc = cable(DC_SIZES, iStringMax, (a) => (2 * dcRun * m.imp * RHO) / a / vString, 0.015)
   const iAc = inv.phase === 1 ? (inv.ac * 1000) / 230 : (inv.ac * 1000) / (Math.sqrt(3) * 415 * 0.99)
   const acDrop = (a) => (inv.phase === 1 ? (2 * acRun * iAc * RHO) / a / 230 : (Math.sqrt(3) * acRun * iAc * RHO) / a / 415)
@@ -111,6 +116,8 @@ export function electricalDesign({ layout, module: m, temps, p, heightM = 6 }) {
   const totalAcA = iAc * n
   const mainAc = n > 1 ? cable(AC_SIZES, totalAcA * 1.25, (a) => (inv.phase === 1 ? (2 * 10 * totalAcA * RHO) / a / 230 : (Math.sqrt(3) * 10 * totalAcA * RHO) / a / 415), 0.01) : null
 
+  if (mainAc?.over) checks.push({ label: 'AC main feeder', value: `${Math.round(totalAcA)} A`, limit: 'beyond 4 cables: busduct, or an MV transformer', ok: false })
+  if (ac.over) checks.push({ label: 'AC cable per inverter', value: `${Math.round(iAc)} A`, limit: 'beyond 4 cables: shorten the run', ok: false })
   const protection = {
     stringFuse: stringsPerInv / inv.mppts > 2 ? next(FUSES, m.isc * 1.56) : null, // only with 3+ strings in parallel
     dcIsolator: { v: Math.ceil((vocCold * L) / 100) * 100, a: next(BREAKERS, iMppt * 1.25) },
@@ -122,15 +129,18 @@ export function electricalDesign({ layout, module: m, temps, p, heightM = 6 }) {
   }
 
   const battery = batteryDesign(p)
+  // Diesel generator on site: the controller keeps the DG at least ~30 % loaded (0.8 pf), so solar
+  // may only cover the load above that, and never feeds back into the DG.
+  const dg = p.dgKva > 0 ? { kva: p.dgKva, minKw: 0.3 * p.dgKva * 0.8 } : null
 
   const strings = stringsPerInv * n
   const bom = [
     { item: `PV module, ${m.watt} W${m.dcr ? ' DCR' : ''}`, qty: count, unit: 'nos' },
     { item: `String inverter, ${inv.label}${battery ? ' (hybrid)' : ''}`, qty: n, unit: 'nos' },
-    { item: 'Mounting structure (hot-dip galvanised)', qty: Math.round(kwp * (layout.load > 0 ? 70 : 45)), unit: 'kg' },
+    mounting(p, layout, kwp),
     { item: `DC cable, ${dc.mm2} mm² PV (red + black)`, qty: Math.ceil(strings * dcRun * 2 * 1.1), unit: 'm' },
-    { item: `AC cable, ${ac.mm2} mm² Cu, ${inv.phase === 1 ? '2' : '4'}-core`, qty: Math.ceil(acRun * n * 1.1), unit: 'm' },
-    ...(mainAc ? [{ item: `AC main cable, ${mainAc.mm2} mm² Cu, 4-core`, qty: 11, unit: 'm' }] : []),
+    { item: `AC cable, ${ac.mm2} mm² Cu, ${inv.phase === 1 ? '2' : '4'}-core${ac.runs > 1 ? `, ${ac.runs} runs in parallel` : ''}`, qty: Math.ceil(acRun * n * ac.runs * 1.1), unit: 'm' },
+    ...(mainAc ? [{ item: `AC main cable, ${mainAc.mm2} mm² Cu, 4-core${mainAc.runs > 1 ? `, ${mainAc.runs} runs in parallel` : ''}`, qty: 11 * mainAc.runs, unit: 'm' }] : []),
     { item: 'MC4 connector pairs', qty: strings * 2 + 4, unit: 'pairs' },
     { item: `DCDB: isolator ${protection.dcIsolator.v} V / ${protection.dcIsolator.a} A, SPD${protection.stringFuse ? `, ${protection.stringFuse} A string fuses` : ''}`, qty: n, unit: 'nos' },
     { item: `ACDB: ${protection.acBreaker} A MCB${protection.mainBreaker ? `, ${protection.mainBreaker} A main` : ''}, SPD`, qty: 1, unit: 'nos' },
@@ -139,13 +149,32 @@ export function electricalDesign({ layout, module: m, temps, p, heightM = 6 }) {
     { item: 'Bidirectional net meter', qty: 1, unit: 'nos' },
     { item: 'Monitoring (Wi-Fi / 4G dongle)', qty: n, unit: 'nos' },
     ...(battery ? [{ item: `LFP battery, ${battery.nominal.toFixed(1)} kWh`, qty: 1, unit: 'set' }] : []),
+    ...(dg ? [{ item: `DG-PV synchronisation controller (CTs on the DG incomer, RS485 to inverters), ${dg.kva} kVA DG`, qty: 1, unit: 'set' }] : []),
+    ...(p.zeroExport ? [{ item: 'Zero-export controller + CTs at the main incomer', qty: 1, unit: 'set' }] : []),
   ]
 
   return {
-    inverter: { key, ...inv, n }, dcac, L, minLen, maxLen, stringsPerInv, perMppt, strings, used, loose,
+    inverter: { key, ...inv, n }, dcac, L, Lmin, lengths: Lmin === Lmax ? `${Lmax}` : `${Lmin}–${Lmax}`, minLen, maxLen, stringsPerInv, perMppt, strings, used, loose,
     vocCold, vmpHot, vmpCold, temps, checks, ok: checks.every((c) => c.ok),
-    runs: { dc: dcRun, ac: acRun }, dc, ac, mainAc, iAc, protection, battery, bom,
+    runs: { dc: dcRun, ac: acRun }, dc, ac, mainAc, iAc, protection, battery, dg, zeroExport: !!p.zeroExport, bom,
   }
+}
+
+/**
+ * Mounting line of the BOM by roof type. Steel per kWp is indicative: elevated RCC structures
+ * ~60–80 kg, ground MMS ~45, rail kits on pitched or sheet roofs ~12–20 (aluminium rails + hooks).
+ */
+function mounting(p, layout, kwp) {
+  const pitched = ['gable', 'hip', 'lshape', 'shed'].includes(p.site)
+  if (p.site === 'industrial') return { item: 'Short aluminium rails + mid/end clamps on sheet ribs (no roof penetration)', qty: Math.ceil(layout.count * 2), unit: 'rails' }
+  if (pitched && p.tiles) return { item: 'Solar tile battens, flashings and ridge / eave trims', qty: Math.round(layout.moduleArea), unit: 'm²' }
+  if (pitched && p.roofing === 'clay') return { item: 'Tile hooks + aluminium rails (Mangalore tiles lifted and replaced)', qty: Math.ceil(layout.count * 2.5), unit: 'hooks' }
+  if (pitched && p.roofing === 'metal') return { item: 'Short rails clamped to sheet ribs', qty: Math.ceil(layout.count * 2), unit: 'rails' }
+  if (pitched) return { item: 'Roof hooks / L-feet + aluminium rails, flashed', qty: Math.ceil(layout.count * 2.5), unit: 'hooks' }
+  if (p.site === 'terrace' && p.elevated) return { item: 'Elevated GI structure (hot-dip galvanised), anchored to RCC', qty: Math.round(kwp * 70), unit: 'kg' }
+  if (p.site === 'ground') return { item: 'Ground-mount MMS (hot-dip galvanised) + piles', qty: Math.round(kwp * 45), unit: 'kg' }
+  if (['carport', 'busstop'].includes(p.site) || p.site === 'airport') return { item: 'Canopy steel (columns, beams, purlins)', qty: Math.round(kwp * 110), unit: 'kg' }
+  return { item: p.eastWest ? 'East-west ballasted aluminium racking' : 'Tilted GI racks on RCC (anchored or ballasted)', qty: Math.round(kwp * (p.eastWest ? 25 : 45)), unit: 'kg' }
 }
 
 /** Backup battery: essential kW × hours, LFP at 90 % depth of discharge and 95 % round-trip. */
@@ -182,7 +211,7 @@ export function sldSvg(e, { dark = false } = {}) {
     parts.push(line(116, y + 10, 140, y + 10), line(140, y + 10, 140, 50))
   }
   parts.push(line(140, 50, 226, 50), arrow(226, 50, 1))
-  parts.push(text(12, 14 + shown * 26 + 8, `${e.strings} string${e.strings > 1 ? 's' : ''} × ${e.L} modules · ${e.dc.mm2} mm²`))
+  parts.push(text(12, 14 + shown * 26 + 8, `${e.strings} string${e.strings > 1 ? 's' : ''} × ${e.lengths} modules · ${e.dc.mm2} mm²`))
   parts.push(text(12, 14 + shown * 26 + 21, `Voc ${Math.round(e.vocCold * e.L)} V at ${e.temps.low} °C`))
   parts.push(box(228, 22, 120, 56, 'DCDB', `isolator ${e.protection.dcIsolator.a} A · SPD`))
   // Row 2: inverter (and battery).
@@ -196,12 +225,16 @@ export function sldSvg(e, { dark = false } = {}) {
   }
   // Row 3: ACDB → net meter → grid (right to left).
   parts.push(line(288, 180, 288, 216), `<path d="M288 218 l-4 -7 h8z" fill="${ink}"/>`)
-  parts.push(text(296, 202, `${e.ac.mm2} mm² AC`))
+  parts.push(text(296, 202, `${e.ac.label} AC`))
   parts.push(box(248, 218, 100, 52, 'ACDB', `${e.protection.acBreaker} A · SPD`))
   parts.push(line(248, 244, 222, 244), `<path d="M220 244 l7 -4 v8z" fill="${ink}"/>`)
   parts.push(box(128, 218, 92, 52, 'Net meter', 'bidirectional'))
   parts.push(line(128, 244, 102, 244), `<path d="M100 244 l7 -4 v8z" fill="${ink}"/>`)
   parts.push(box(12, 218, 88, 52, 'Grid', inv.phase === 1 ? '230 V' : '415 V'))
+  if (e.dg) {
+    parts.push(line(298, 270, 298, 282, ink, '4 3'), text(292, 284, `DG ${e.dg.kva} kVA + DG-PV sync`, 'end'))
+  }
+  if (e.zeroExport) parts.push(text(132, 284, 'zero-export limiter'))
   // Earth bar.
   parts.push(line(12, 296, 348, 296, mute, '2 3'))
   parts.push(text(12, 312, `⏚ ${e.protection.earthing} earth pits (DC, AC, LA) + lightning arrester`))

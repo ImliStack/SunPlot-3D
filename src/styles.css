@@ -664,3 +664,55 @@ select, .text {
 .brand-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 6px; }
 .brand-fields .field:first-child { grid-column: 1 / -1; }
 .color-field input[type=color] { width: 100%; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); padding: 2px; }
+
+.buyer-seg { margin-bottom: 12px; }
+.bills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 4px; }
+.bills label { display: flex; flex-direction: column; gap: 2px; }
+.bills small { font-size: 10.5px; color: var(--muted); }
+.bills .text { padding: 5px 6px; font-size: 12.5px; }
+.use-bars { display: flex; align-items: flex-end; gap: 3px; height: 48px; margin-top: 10px; }
+.use-bars span { position: relative; flex: 1; background: color-mix(in srgb, var(--muted) 35%, transparent); border-radius: 2px 2px 0 0; min-height: 2px; }
+.use-bars i { position: absolute; bottom: -14px; left: 0; right: 0; text-align: center; font-size: 9.5px; font-style: normal; color: var(--muted); }
+.use-bars { margin-bottom: 14px; }
+.buyer-seg { display: grid; grid-template-columns: repeat(3, 1fr); }
+
+.campus { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.campus-table td, .campus-table th { padding-right: 4px; white-space: nowrap; }
+.campus-table .mini-chip { padding: 1px 6px; margin-left: 2px; }
+.campus-name { width: 72px; border: 0; background: transparent; color: var(--ink); font: inherit; padding: 0; }
+.campus-name:focus { outline: 1px solid var(--line); }
+.campus-table tr.is-total td { font-weight: 600; }
+.checklist summary { cursor: pointer; list-style: none; }
+.checklist summary::-webkit-details-marker { display: none; }
+.checklist summary h3::after { content: '+'; color: var(--muted); }
+.checklist[open] summary h3::after { content: '−'; }
+.checklist ol { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.55; }
+
+.client-panel { display: flex; flex-direction: column; gap: 12px; }
+.client-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 2px solid var(--accent, #d9902a); }
+.client-head strong { font-family: Newsreader, serif; font-size: 24px; font-weight: 500; }
+.client-head span { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.client-title { margin: 4px 0 0; font-family: Newsreader, serif; font-weight: 500; font-size: 26px; line-height: 1.15; }
+.client-sub { margin: 0; color: var(--muted); font-size: 13px; }
+.client-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.client-stats div { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+.client-stats b { font-size: 18px; font-weight: 600; }
+.client-stats span { font-size: 11.5px; color: var(--muted); }
+.client-note { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.client-contact { display: flex; flex-direction: column; gap: 8px; }
+.client-contact .primary-btn { justify-content: center; text-decoration: none; }
+
+.projects-pop { width: 330px; max-height: 70vh; overflow: auto; }
+.projects-pop strong small { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+.project-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.project-list button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px; border-radius: 9px; text-align: left; color: var(--ink); }
+.project-list button:hover { background: var(--soft); }
+.project-list span { display: flex; flex-direction: column; }
+.project-list small { color: var(--muted); font-size: 11.5px; }
+.project-list em { font-style: normal; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.project-title { font: 500 17px Newsreader, serif; border: 0; background: transparent; color: var(--ink); width: 100%; padding: 4px 0; }
+.compare td small { display: block; color: var(--muted); font-size: 10.5px; }
+.compare .star { color: #d9902a; font-size: 15px; }
+.compare .row-actions { white-space: nowrap; }
+.compare .row-actions .mini-chip { margin-left: 2px; }
+.link-btn.danger { color: #c93a3f; }

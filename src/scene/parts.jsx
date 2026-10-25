@@ -93,6 +93,12 @@ export function materials() {
     white: new THREE.MeshStandardMaterial({ color: '#f2f3f5', roughness: 0.4, metalness: 0.1 }),
     tank: new THREE.MeshStandardMaterial({ color: '#202326', roughness: 0.55 }),
     neighbour: new THREE.MeshStandardMaterial({ color: '#cfc8bb', roughness: 0.9 }),
+    metalRoof: new THREE.MeshStandardMaterial({ map: tex.metalSheet, metalness: 0.55, roughness: 0.42, side: THREE.DoubleSide }),
+    metalWall: new THREE.MeshStandardMaterial({ map: tex.metalSheet, color: '#dfe5ea', metalness: 0.35, roughness: 0.5 }),
+    clay: new THREE.MeshStandardMaterial({ map: tex.clay, roughness: 0.8, side: THREE.DoubleSide }),
+    polycarb: new THREE.MeshPhysicalMaterial({ color: '#f3f6f2', roughness: 0.35, transmission: 0.2, transparent: true, opacity: 0.85 }),
+    grating: new THREE.MeshStandardMaterial({ color: '#8d949b', metalness: 0.6, roughness: 0.5 }),
+    shutter: new THREE.MeshStandardMaterial({ color: '#6f7a85', metalness: 0.5, roughness: 0.5 }),
   }
   return shared
 }
