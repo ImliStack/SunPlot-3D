@@ -2,7 +2,7 @@ import { useSolar } from '../store.js'
 import { useLayout, useYield, useEngineering } from '../hooks.js'
 import { SITES, panelOf } from '../presets.js'
 import Icon from './Icon.jsx'
-import Brand from './Brand.jsx'
+import Brand, { REPO, SITE } from './Brand.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 const money = (cur, n) => {
@@ -53,7 +53,7 @@ export default function ClientPanel() {
           {c.email && <a className="link-btn" href={`mailto:${c.email}?subject=${encodeURIComponent(`Solar proposal, ${fmt(layout.kwp, 1)} kWp`)}`}>{c.email}</a>}
         </div>
       )}
-      <p className="fine">Made with SunPlot 3D. Concept estimate; final design after a site visit.</p>
+      <p className="fine">Made with <a href={REPO} target="_blank" rel="noreferrer">SunPlot 3D</a>, open source by <a href={SITE} target="_blank" rel="noreferrer">ImliStack</a>. Concept estimate; final design after a site visit.</p>
     </aside>
   )
 }

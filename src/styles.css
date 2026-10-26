@@ -716,3 +716,9 @@ select, .text {
 .compare .row-actions { white-space: nowrap; }
 .compare .row-actions .mini-chip { margin-left: 2px; }
 .link-btn.danger { color: #c93a3f; }
+
+.brand-actions { display: flex; align-items: center; gap: 2px; }
+.brand-actions a.ghost-btn { display: inline-flex; color: inherit; }
+.by-imli { display: block; margin: -4px 0 12px; font-size: 12px; color: var(--muted); text-decoration: none; }
+.by-imli b { font-weight: 600; color: var(--ink); }
+.by-imli:hover { color: var(--ink); }

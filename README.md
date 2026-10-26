@@ -555,5 +555,5 @@ Issues and pull requests are welcome.
 
 <div align="center">
 <br />
-<sub>Made with care by <a href="https://github.com/ImliStack">ImliStack</a></sub>
+<sub>Made with care by <a href="https://imlistack.com">ImliStack</a> · more projects at <a href="https://imlistack.com">imlistack.com</a> · <a href="https://github.com/ImliStack">GitHub</a></sub>
 </div>
