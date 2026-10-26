@@ -8,7 +8,10 @@ import './styles.css'
 document.documentElement.dataset.theme = useSolar.getState().theme
 
 // Dev-only handle for scripted screenshots and checks.
-if (import.meta.env.DEV) window.__solar = useSolar
+if (import.meta.env.DEV) {
+  window.__solar = useSolar
+  import('./scene/capture.js').then(({ getControls }) => { window.__controls = getControls })
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
