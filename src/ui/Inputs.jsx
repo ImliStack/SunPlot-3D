@@ -52,7 +52,7 @@ export function Toggle({ k, label, hint }) {
 
 function Section({ title, icon, children, aside }) {
   return (
-    <section className="section">
+    <section className={`section section-${String(title).toLowerCase().replace(/[^a-z]+/g, '-')}`}>
       <h2 className="section-title"><Icon name={icon} size={16} />{title}{aside}</h2>
       {children}
     </section>

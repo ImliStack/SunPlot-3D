@@ -119,11 +119,22 @@ export function overlap(gen, load) {
   let total = 0
   let use = 0
   let inWindow = 0
+  const monthSelf = new Array(12).fill(0)
+  const monthGen = new Array(12).fill(0)
+  const monthUse = new Array(12).fill(0)
+  let day = 0
+  let m = 0
+  let dayInMonth = 0
   for (let i = 0; i < 8760; i++) {
+    if (i % 24 === 0 && i > 0) { day++; dayInMonth++; if (dayInMonth >= MONTH_DAYS[m]) { m = Math.min(11, m + 1); dayInMonth = 0 } }
     const g = gen[i]
     total += g
     use += load ? load[i] : 0
-    if (load) self += Math.min(g, load[i])
+    const sh = load ? Math.min(g, load[i]) : 0
+    if (load) self += sh
+    monthSelf[m] += sh
+    monthGen[m] += g
+    if (load) monthUse[m] += load[i]
     const hr = i % 24
     if (hr >= SOLAR_HOURS[0] && hr < SOLAR_HOURS[1]) inWindow += g
   }
@@ -132,5 +143,9 @@ export function overlap(gen, load) {
     selfShare: total ? (load ? self / total : 1) : 0, // of generation, used instantly on site
     coverInstant: use ? self / use : 0, // of the load, met by solar as it happens
     solarHours: total ? inWindow / total : 0,
+    selfKwh: self,
+    exportKwh: total - self,
+    importKwh: load ? use - self : 0,
+    monthly: { gen: monthGen, use: monthUse, self: monthSelf },
   }
 }

@@ -8,6 +8,9 @@ import Proposal from './ui/Proposal.jsx'
 import Exports from './ui/Exports.jsx'
 import ClientPanel from './ui/ClientPanel.jsx'
 import Projects from './ui/Projects.jsx'
+import Analytics from './ui/Analytics.jsx'
+import { Workflow, HistoryButtons, AutosaveRestore } from './ui/Workflow.jsx'
+import { useParamsHistory } from './history.js'
 import PanelToggles from './ui/PanelToggles.jsx'
 
 // The map-based survey (MapLibre) loads only when someone opens it.
@@ -67,6 +70,7 @@ function Tools() {
         {tool('focus', 'Focus mode — hide both panels · \\', () => st.togglePanel('focus'), focus)}
         {tool('hq', hq ? 'High quality (ambient occlusion) on' : 'High quality off — faster', st.toggleHq, hq)}
         {tool(theme === 'dark' ? 'sun' : 'moon', theme === 'dark' ? 'Light theme' : 'Dark theme', st.toggleTheme)}
+        {!client && <HistoryButtons />}
         {!client && <Projects />}
         {!client && <Proposal />}
         {!client && <Exports />}
@@ -294,6 +298,7 @@ export default function App() {
   useHashLink()
   useClimateFetch()
   useHourlyWeatherFetch()
+  useParamsHistory()
   useShadingStudy()
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   const mode = useSolar((s) => s.mode)
@@ -311,12 +316,15 @@ export default function App() {
             <StageBoundary><Stage /></StageBoundary>
             <TagLayer />
             <Tools />
+            {!client && <Workflow />}
+            <AutosaveRestore />
             <PanelToggles />
             <HudCompass />
             <Legend />
             {!client && <InstallBar />}
             <WeatherEffect />
             <SunBar />
+            {!client && <Analytics />}
           </main>
           <Results />
         </>
