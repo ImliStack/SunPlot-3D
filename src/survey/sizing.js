@@ -1,17 +1,12 @@
 // Survey maths: bill → system size, PM Surya Ghar subsidy, terrace zones and the recommended
 // set of modules. Figures follow MNRE guidelines as researched in PLAN.md §8 (Oct 2026).
 
-// States with the higher central subsidy (₹33,000 / ₹19,800 per kW).
-const SPECIAL = ['Arunachal Pradesh', 'Assam', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Sikkim', 'Tripura',
-  'Uttarakhand', 'Himachal Pradesh', 'Jammu and Kashmir', 'Ladakh', 'Andaman and Nicobar Islands', 'Lakshadweep']
+import { INCENTIVES, SPECIAL_STATES } from '../data/incentives.js'
 
-export const isSpecialState = (state = '') => SPECIAL.some((s) => state.toLowerCase().includes(s.toLowerCase()))
+export const isSpecialState = (state = '') => SPECIAL_STATES.some((s) => state.toLowerCase().includes(s.toLowerCase()))
 
-/** Central subsidy (CFA) for a residential system of `kw`, capped at 3 kW. */
-export function subsidy(kw, special = false) {
-  const [a, b] = special ? [33000, 19800] : [30000, 18000]
-  return Math.min(kw, 2) * a + Math.min(Math.max(kw - 2, 0), 1) * b
-}
+/** Central subsidy (CFA) for a residential system of `kw` — see src/data/incentives.js for the source. */
+export const subsidy = (kw, special = false) => INCENTIVES.pmSuryaGharHome.amount(kw, special)
 
 /**
  * System size from consumption. `unitsMonth` is average kWh per month; `specific` is the site's

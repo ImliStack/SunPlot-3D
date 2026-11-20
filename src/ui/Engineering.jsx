@@ -5,7 +5,9 @@ import { Field, Toggle } from './Inputs.jsx'
 import { PROFILES, SOLAR_HOURS } from '../load.js'
 import { MONTHS } from '../solar.js'
 import { checklists } from '../checklists.js'
+import { INCENTIVES } from '../data/incentives.js'
 import Icon from './Icon.jsx'
+import Stat from './Stat.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 /** ₹ in lakh / crore past ₹1 L; other currencies in M past a million. */
@@ -15,15 +17,6 @@ const money = (cur, n) => {
     ? (a >= 1e7 ? `${fmt(a / 1e7, 2)} Cr` : a >= 1e5 ? `${fmt(a / 1e5, 2)} L` : fmt(a))
     : (a >= 1e6 ? `${fmt(a / 1e6, 2)} M` : fmt(a))
   return `${n < 0 ? '−' : ''}${cur}${v}`
-}
-
-function Stat({ value, unit, label, tip }) {
-  return (
-    <div className="stat" title={tip}>
-      <span className="stat-value">{value}{unit && <small> {unit}</small>}</span>
-      <span className="stat-label">{label}</span>
-    </div>
-  )
 }
 
 export function download(name, text, type = 'text/csv') {
@@ -44,7 +37,7 @@ export function ElectricalTab({ p, layout, eng }) {
       <div className="hero">
         <Stat value={`${inv.n} ×`} unit={`${inv.ac} kW`} label="inverters" />
         <Stat value={`${e.strings} × ${e.lengths}`} label="strings × modules" />
-        <Stat value={fmt(e.dcac, 2)} label="DC : AC ratio" />
+        <Stat value={fmt(e.dcac, 2)} label="DC : AC ratio" metric="dcAcRatio" />
       </div>
 
       <section className="card">
@@ -173,9 +166,7 @@ function CashChart({ rows, down, cur }) {
 
 const MONTH_SHORT = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
-/** PM Surya Ghar CFA for a housing society's common facilities: ₹18,000/kW (₹19,800 special states)
- *  on the lower of the plant size, 3 kW per house and 500 kW. */
-const societyCfa = (kw, houses, special) => (special ? 19800 : 18000) * Math.max(0, Math.min(kw, 3 * houses, 500))
+const societyCfa = (kw, houses, special) => INCENTIVES.pmSuryaGharSociety.amount(kw, houses, special)
 
 /** Consumption: profile, average or twelve bills, metering type, ToD solar-hour discount. */
 function UseCard({ p, eng, kwp }) {
@@ -229,8 +220,8 @@ function UseCard({ p, eng, kwp }) {
       {mix && mix.useYear > 0 && (
         <div className="grid2" style={{ marginTop: 10 }}>
           <Stat value={fmt(Math.min(1, mix.gen / mix.useYear) * 100)} unit="%" label="of the year's use from solar" />
-          <Stat value={fmt(mix.selfShare * 100)} unit="%" label="of solar used as it is made" tip="Hour by hour, solar output against the load pattern" />
-          <Stat value={fmt(mix.coverInstant * 100)} unit="%" label="of use met live by solar" />
+          <Stat value={fmt(mix.selfShare * 100)} unit="%" label="of solar used as it is made" metric="selfConsumption" tip="Hour by hour, solar output against the load pattern" />
+          <Stat value={fmt(mix.coverInstant * 100)} unit="%" label="of use met live by solar" metric="selfSufficiency" />
           <Stat value={fmt(mix.solarHours * 100)} unit="%" label={`of solar in ToD hours (${SOLAR_HOURS[0]}–${SOLAR_HOURS[1]} h)`} />
         </div>
       )}
@@ -247,6 +238,43 @@ function UseCard({ p, eng, kwp }) {
       )}
       <Toggle k="zeroExport" label="Zero export (no net meter)" hint="An export limiter holds solar to the site load; surplus is curtailed, not sold." />
       {p.buyer !== 'home' && <Field k="todDisc" label="ToD solar-hour rebate" min={0} max={30} unit="%" hint="C&I time-of-day tariffs make solar hours 10–20 % cheaper (2023 rules); that lowers what solar saves." />}
+    </section>
+  )
+}
+
+/** Conservative / base / optimistic cases and an NPV tornado (±10 % per driver). */
+function ScenarioCard({ p, sc, sens }) {
+  const rows = [sc.conservative, sc.base, sc.optimistic]
+  const max = Math.max(...sens.map((d) => Math.max(Math.abs(d.low), Math.abs(d.high))), 1)
+  return (
+    <section className="card">
+      <h3>Scenarios</h3>
+      <table className="arrays">
+        <thead><tr><th>Case</th><th>Payback</th><th>IRR</th><th>NPV</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label} className={r.label === 'Base' ? 'is-best' : ''} title={r.note}>
+              <td>{r.label}<small>{r.note}</small></td>
+              <td>{r.f.payback != null ? `${fmt(r.f.payback, 1)} yr` : '—'}</td>
+              <td>{r.f.irr != null ? `${fmt(r.f.irr * 100, 1)} %` : '—'}</td>
+              <td>{money(p.cur, r.f.npv)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <h3 className="sub">NPV sensitivity, ±10 % on each input</h3>
+      <div className="tornado" role="img" aria-label="NPV sensitivity tornado chart">
+        {sens.map((d) => (
+          <div key={d.name} className="tornado-row">
+            <span>{d.name}</span>
+            <span className="tornado-bar">
+              <i className="lo" style={{ width: `${(Math.abs(Math.min(d.low, d.high)) / max) * 50}%`, right: '50%' }} />
+              <i className="hi" style={{ width: `${(Math.max(d.low, d.high) / max) * 50}%`, left: '50%' }} />
+            </span>
+            <b>±{money(p.cur, Math.max(Math.abs(d.low), Math.abs(d.high)))}</b>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
@@ -269,7 +297,7 @@ export function MoneyTab({ p, layout, eng, survey }) {
       {p.buyer === 'resco' && ppa ? (
         <>
           <div className="hero">
-            <Stat value={`${p.cur}${fmt(ppa.ppa, 2)}`} unit="/kWh" label={`PPA tariff, ${p.ppaYears} yr flat`} />
+            <Stat value={`${p.cur}${fmt(ppa.ppa, 2)}`} unit="/kWh" label={`PPA tariff, ${p.ppaYears} yr flat`} metric="rescoTariff" />
             <Stat value={fmt(ppa.discountVsGrid * 100)} unit="%" label="cheaper than the grid" />
             <Stat value={money(p.cur, ppa.firstYear)} label="site saves in year 1" />
           </div>
@@ -298,24 +326,29 @@ export function MoneyTab({ p, layout, eng, survey }) {
       ) : (
         <>
           <div className="hero">
-            <Stat value={f.payback != null ? fmt(f.payback, 1) : '> 25'} unit="yr" label={f.business ? 'payback (after tax)' : 'payback'} />
-            <Stat value={f.irr != null ? fmt(f.irr * 100, 1) : '—'} unit="%" label={f.business ? 'IRR after tax' : 'IRR (25 yr)'} />
+            <Stat value={f.payback != null ? fmt(f.payback, 1) : '> 25'} unit="yr" label={f.business ? 'payback (after tax)' : 'payback'} metric="payback" />
+            <Stat value={f.irr != null ? fmt(f.irr * 100, 1) : '—'} unit="%" label={f.business ? 'IRR after tax' : 'IRR (25 yr)'} metric="irr" />
             <Stat value={money(p.cur, f.gain25)} label="25-year gain" />
           </div>
 
           <section className="card">
-            <h3>Cash over 25 years <span className="legend"><i className="sw neg" />paying back <i className="sw pos" />in profit</span></h3>
+            <h3>Cash over {f.years} years <span className="legend"><i className="sw neg" />paying back <i className="sw pos" />in profit</span></h3>
             <CashChart rows={f.rows} down={f.down} cur={p.cur} />
             <div className="kpis">
               <Stat value={money(p.cur, f.gross)} label="system cost" />
               {f.subsidy > 0 && <Stat value={`−${money(p.cur, f.subsidy)}`} label="subsidy / incentive" />}
               {f.business && <Stat value={money(p.cur, f.adYear1 * f.tax)} label={`tax saved in yr 1 (40 % AD on ${money(p.cur, f.net)})`} />}
-              <Stat value={money(p.cur, f.npv)} label={`NPV at ${p.discount} %`} />
-              <Stat value={`${p.cur}${fmt(f.lcoe, 2)}`} unit="/kWh" label="LCOE" tip="Lifetime cost ÷ lifetime energy, discounted" />
-              <Stat value={money(p.cur, f.savings25)} label="25-yr bill savings" />
-              {f.loan > 0 && <Stat value={money(p.cur, f.emi)} unit="/mo" label={`EMI, ${p.loanYears} yr`} />}
+              <Stat value={money(p.cur, f.npv)} label={`NPV at ${p.discount} %`} metric="npv" />
+              <Stat value={`${p.cur}${fmt(f.lcoe, 2)}`} unit="/kWh" label="LCOE" metric="lcoe" />
+              <Stat value={money(p.cur, f.savings25)} label={`${f.years}-yr bill savings`} metric="lifetimeSavings" />
+              <Stat value={f.discountedPayback != null ? fmt(f.discountedPayback, 1) : `> ${f.years}`} unit="yr" label="discounted payback" metric="discountedPayback" />
+              <Stat value={f.roi != null ? fmt(f.roi * 100) : '—'} unit="%" label={`ROI (${f.years} yr)`} metric="roi" />
+              {f.billBefore != null && <Stat value={`${money(p.cur, f.billBefore)} → ${money(p.cur, Math.max(0, f.billAfter))}`} label="bill per year, before → after" />}
+              {f.loan > 0 && <Stat value={money(p.cur, f.emi)} unit="/mo" label={`EMI, ${p.loanYears} yr`} metric="emi" />}
             </div>
           </section>
+
+          {eng.scenarios && <ScenarioCard p={p} sc={eng.scenarios} sens={eng.sensitivity} />}
 
           <UseCard p={p} eng={eng} kwp={layout.kwp} />
 
@@ -339,6 +372,10 @@ export function MoneyTab({ p, layout, eng, survey }) {
                 {india && p.buyer === 'home' && p.society && <button className="mini-chip" onClick={() => set('subsidy', society)} title="CFA for group housing societies / RWAs">RWA CFA {money(p.cur, society)}</button>}
               </span>
             </label>
+            {india && p.buyer === 'home' && (() => {
+              const inc = p.society ? INCENTIVES.pmSuryaGharSociety : INCENTIVES.pmSuryaGharHome
+              return <p className="card-note">{inc.rule}. Source: <a href={inc.url} target="_blank" rel="noreferrer">{inc.source}</a> (scheme dated {inc.asOf}, checked {inc.checked}). {inc.caveat}.</p>
+            })()}
             {p.buyer === 'business' && (
               <>
                 <Field k="taxRate" label="Company tax rate" min={0} max={40} step={0.01} unit="%" hint="25.17 % = 22 % + surcharge + cess (new regime); 34.94 % old regime." />
@@ -349,6 +386,9 @@ export function MoneyTab({ p, layout, eng, survey }) {
             <Field k="escalation" label="Tariff rise" min={0} max={10} step={0.5} unit="%/yr" />
             <Field k="omPct" label="O&M + insurance" min={0} max={3} step={0.1} unit="% / yr" />
             <Field k="discount" label="Discount rate" min={0} max={15} step={0.5} unit="%" />
+            <Field k="lifetime" label="Project lifetime" min={10} max={35} unit="yr" />
+            <Field k="degradation" label="Module ageing" min={0} max={1.5} step={0.05} unit="%/yr" hint="After year 1 (first-year LID is already in the simulation losses)." />
+            <Field k="inverterYear" label="Inverter replaced in year" min={0} max={30} hint="0 = never." />
             <Field k="loanShare" label="Financed by loan" min={0} max={100} step={5} unit="%" />
             {p.loanShare > 0 && (
               <>
@@ -370,7 +410,7 @@ export function MoneyTab({ p, layout, eng, survey }) {
       <section className="card env">
         <h3>For the planet</h3>
         <div className="grid2">
-          <Stat value={fmt(f.env.co2Year, 1)} unit="t" label="CO₂ avoided a year" />
+          <Stat value={fmt(f.env.co2Year, 1)} unit="t" label="CO₂ avoided a year" metric="co2" />
           <Stat value={fmt(f.env.co2Life)} unit="t" label="CO₂ over 25 years" />
           <Stat value={fmt(f.env.trees)} label="trees' worth of CO₂, every year" />
           {india && <Stat value={fmt(f.env.coal, 1)} unit="t" label="coal not burnt a year" />}

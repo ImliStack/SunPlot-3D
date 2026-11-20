@@ -8,7 +8,7 @@ import { siteZone, offsetMinutes } from './engine/clock.js'
 import { pickInverters } from './electrical.js'
 import { CLIMATES, panelOf } from './presets.js'
 import { electricalDesign } from './electrical.js'
-import { finance, resco } from './finance.js'
+import { finance, resco, scenarios, sensitivity } from './finance.js'
 import { PROFILES, defaultProfile, monthlyFromAverage, hourlyLoad, hourlyGeneration, overlap } from './load.js'
 
 // The sun slider and day animation change `hour` / `day` every frame; the layout and yield
@@ -16,7 +16,7 @@ import { PROFILES, defaultProfile, monthlyFromAverage, hourlyLoad, hourlyGenerat
 const VIEW_KEYS = new Set(['day', 'hour', 'surroundings', 'closeTrees', 'placeName', 'tz', 'cur', 'cost', 'tariff', 'co2', 'climate', 'cleanDays', 'weather',
   'inverter', 'invCount', 'dcRun', 'acRun', 'subsidy', 'escalation', 'discount', 'omPct', 'useKwh', 'exportRate',
   'loanShare', 'loanRate', 'loanYears', 'battLoad', 'battHours', 'battPrice',
-  'buyer', 'zeroExport', 'dgKva', 'society', 'houses', 'metering', 'profile', 'bills', 'todDisc', 'taxRate', 'ppaYears', 'roe', 'debtShare', 'debtRate', 'debtYears'])
+  'lifetime', 'degradation', 'omRise', 'inverterYear', 'inverterShare', 'buyer', 'zeroExport', 'dgKva', 'society', 'houses', 'metering', 'profile', 'bills', 'todDisc', 'taxRate', 'ppaYears', 'roe', 'debtShare', 'debtRate', 'debtYears'])
 export const designKey = (p) => Object.entries(p).filter(([k]) => !VIEW_KEYS.has(k)).map(([, v]) => (v && typeof v === 'object' ? JSON.stringify(v) : v)).join('|')
 
 /** Every array the site could take. In click-to-install mode that includes every roof plane. */
@@ -234,6 +234,9 @@ export function useEngineering(layout, y) {
     const e = electricalDesign({ layout, module: panelOf(p), temps, p, heightM })
     const f = finance({ annual: y.annual, kwp: layout.kwp, p, battery: e?.battery, mix })
     const ppa = p.buyer === 'resco' ? resco({ annual: y.annual, kwp: layout.kwp, p, mix }) : null
-    return { e, f, ppa, temps, mix }
-  }, [layout, y.annual, p, climate, mix])
+    const args = { annual: y.annual, kwp: layout.kwp, p, battery: e?.battery, mix }
+    const sc = p.buyer !== 'resco' && layout.kwp ? scenarios({ ...args, cv: y.variability || 0.04 }) : null
+    const sens = p.buyer !== 'resco' && layout.kwp ? sensitivity(args, 10) : null
+    return { e, f, ppa, temps, mix, scenarios: sc, sensitivity: sens }
+  }, [layout, y.annual, y.variability, p, climate, mix])
 }

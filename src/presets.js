@@ -138,6 +138,11 @@ export const DEFAULTS = {
   acRun: 0, // m from inverter to the meter / LT panel, 0 = estimate
   // Money
   subsidy: 0, // incentive deducted from the cost
+  lifetime: 25, // years analysed
+  degradation: 0.4, // %/yr module ageing after year 1 (year-1 LID is in the simulation losses)
+  omRise: 5, // %/yr O&M cost escalation
+  inverterYear: 12, // year of the inverter replacement
+  inverterShare: 10, // its cost, % of the system cost
   escalation: 3, // % a year the grid tariff rises
   discount: 8, // % a year, for NPV and LCOE
   omPct: 0.8, // % of the cost a year for cleaning, O&M and insurance

@@ -7,6 +7,7 @@ import { MONTHS } from '../solar.js'
 import { LANDMARKS, fetchNearby, distanceKm } from '../installations.js'
 import { climateClass } from '../climate.js'
 import Icon from './Icon.jsx'
+import Stat from './Stat.jsx'
 import { ElectricalTab, MoneyTab } from './Engineering.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
@@ -17,15 +18,6 @@ const bearing = (az) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(
 const LETTERS = 'ABCDEFGH'
 const DEGRADE = 0.005 // per year, typical TOPCon linear warranty
 const DC_AC = 1.2 // typical inverter loading ratio
-
-function Stat({ value, unit, label, big, tip }) {
-  return (
-    <div className={`stat ${big ? 'is-big' : ''}`} title={tip}>
-      <span className="stat-value">{value}{unit && <small> {unit}</small>}</span>
-      <span className="stat-label">{label}</span>
-    </div>
-  )
-}
 
 /** Monthly bars; optional whiskers (min–max over the years) and a reference dot per month. */
 function Bars({ values, lo, hi, marks: mark, unit, digits = 0, height = 110 }) {
@@ -89,7 +81,7 @@ function ShadeStat({ y }) {
       </div>
     )
   }
-  return <Stat value={fmt(y.shadingLoss * 100, 1)} unit="%" label="shading loss" tip="Beam light blocked by trees, other rows and obstacles, over the year" />
+  return <Stat value={fmt(y.shadingLoss * 100, 1)} unit="%" label="shading loss" metric="shadingLoss" tip="Beam light blocked by trees, other rows and obstacles, over the year" />
 }
 
 /** Where the sunlight goes: plane-of-array irradiation → each loss → AC energy. */
@@ -166,9 +158,9 @@ function SystemTab({ p, layout, y }) {
   return (
     <>
       <div className="hero">
-        <Stat big value={fmt(layout.count)} label="modules" />
-        <Stat big value={kwp} unit={unitP} label="DC capacity" />
-        <Stat big value={mwh} unit={unitE} label="per year (P50)" />
+        <Stat big value={fmt(layout.count)} label="modules" metric="modules" />
+        <Stat big value={kwp} unit={unitP} label="DC capacity" metric="dcCapacity" />
+        <Stat big value={mwh} unit={unitE} label="per year (P50)" metric="annualEnergy" />
       </div>
 
       {layout.notes.length > 0 && (
@@ -183,11 +175,11 @@ function SystemTab({ p, layout, y }) {
         {hourlyState.status === 'error' && <p className="card-note warn">Hourly weather could not be loaded ({hourlyState.error}). Figures below are a monthly estimate, not the hourly simulation.</p>}
         <Bars values={y.months} unit="kWh" />
         <div className="kpis">
-          <Stat value={fmt(y.specific)} unit="kWh/kWp" label="specific yield" tip="Annual energy per kWp installed" />
-          <Stat value={fmt((y.capacityFactor ?? cuf) * 100, 1)} unit="%" label="capacity factor (DC)" tip="Annual AC energy ÷ (DC kWp × hours in the weather year)" />
-          <Stat value={fmt((y.pr ?? 0) * 100, 1)} unit="%" label="performance ratio" />
+          <Stat value={fmt(y.specific)} unit="kWh/kWp" label="specific yield" metric="specificYield" tip="Annual energy per kWp installed" />
+          <Stat value={fmt((y.capacityFactor ?? cuf) * 100, 1)} unit="%" label="capacity factor (DC)" metric="capacityFactor" tip="Annual AC energy ÷ (DC kWp × hours in the weather year)" />
+          <Stat value={fmt((y.pr ?? 0) * 100, 1)} unit="%" label="performance ratio" metric="performanceRatio" />
           {y.p90 != null
-            ? <Stat value={energy(y.p90).join(' ')} label="P90 (1-yr)" tip="P50 − 1.2816 σ, with σ the year-to-year spread of ten years of NASA POWER irradiation (weather variability only)" />
+            ? <Stat value={energy(y.p90).join(' ')} label="P90 (1-yr)" metric="p90" tip="P50 − 1.2816 σ, with σ the year-to-year spread of ten years of NASA POWER irradiation (weather variability only)" />
             : <Stat value={fmt(y.annual / 365, 1)} unit="kWh" label="per day, avg" />}
           <ShadeStat y={y} />
         </div>
@@ -222,7 +214,7 @@ function SystemTab({ p, layout, y }) {
           ? <Stat value={power(y.acRating / 1000)[0]} unit={power(y.acRating / 1000)[1].replace('p', '')} label={`AC inverter (DC:AC ${fmt(layout.kwp / (y.acRating / 1000), 2)})`} />
           : <Stat value={power(layout.kwp / DC_AC)[0]} unit={power(layout.kwp / DC_AC)[1].replace('p', '')} label={`AC inverter (DC:AC ${DC_AC}, assumed)`} />}
         <Stat value={energy(life).join(' ')} label="25-year energy (0.5 %/yr loss)" />
-        <Stat value={fmt(layout.moduleArea)} unit="m²" label="module area" />
+        <Stat value={fmt(layout.moduleArea)} unit="m²" label="module area" metric="moduleArea" />
         <Stat value={fmt(layout.coverage * 100)} unit="%" label={['ground'].includes(p.site) ? 'ground cover ratio' : 'of the surface'} />
         {layout.rowInfo && <Stat value={fmt(layout.rowInfo.pitch, 2)} unit="m" label="row pitch" />}
         {layout.rowInfo && <Stat value={fmt(layout.rowInfo.sun, 1)} unit="°" label="design sun (winter noon)" />}
@@ -231,10 +223,10 @@ function SystemTab({ p, layout, y }) {
       </section>
 
       <section className="card grid2">
-        <Stat value={money(p.cur, cost)} label="installed cost" />
+        <Stat value={money(p.cur, cost)} label="installed cost" metric="installCost" />
         <Stat value={money(p.cur, savings)} label="saved per year" />
-        <Stat value={payback ? fmt(payback, 1) : '—'} unit="yr" label="simple payback" />
-        <Stat value={fmt(co2, 1)} unit="t" label="CO₂ avoided / yr" />
+        <Stat value={payback ? fmt(payback, 1) : '—'} unit="yr" label="simple payback" metric="payback" />
+        <Stat value={fmt(co2, 1)} unit="t" label="CO₂ avoided / yr" metric="co2" />
       </section>
 
       {layout.facts.length > 0 && <ul className="facts">{layout.facts.map((f) => <li key={f}>{f}</li>)}</ul>}

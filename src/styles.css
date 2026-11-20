@@ -726,3 +726,21 @@ select, .text {
 .by-imli:hover { color: var(--ink); }
 
 .card-note.warn { color: #b45309; }
+
+/* Calculation registry tooltips */
+.stat { position: relative; }
+.info-dot { margin-left: 4px; padding: 0 2px; border: 0; background: none; color: var(--muted); font-size: 11px; line-height: 1; cursor: help; vertical-align: 1px; }
+.info-dot:hover, .info-dot:focus-visible { color: var(--ink); }
+.metric-pop { position: absolute; z-index: 20; left: 0; top: calc(100% + 4px); width: min(300px, 78vw); display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--ink, #1c1f24); color: var(--paper, #fff); font-size: 11.5px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.metric-pop code { font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: normal; background: rgba(255,255,255,.08); padding: 4px 6px; border-radius: 6px; }
+.metric-pop em { font-style: normal; opacity: .8; }
+.metric-pop small { opacity: .7; }
+
+.arrays td small { display: block; color: var(--muted); font-size: 10.5px; }
+.tornado { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.tornado-row { display: grid; grid-template-columns: 92px 1fr 72px; gap: 8px; align-items: center; font-size: 12px; }
+.tornado-row b { text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tornado-bar { position: relative; height: 10px; background: color-mix(in srgb, var(--muted) 12%, transparent); border-radius: 3px; }
+.tornado-bar i { position: absolute; top: 0; bottom: 0; }
+.tornado-bar .lo { background: #e5484d; opacity: .8; border-radius: 3px 0 0 3px; }
+.tornado-bar .hi { background: #3f9a5c; border-radius: 0 3px 3px 0; }
