@@ -14,6 +14,28 @@ const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maxi
  * add/remove it, its row or its whole array. Anywhere: camera views, layers, sun, image, undo.
  * In auto-fill mode, editing a module switches to hand editing with the current design kept.
  */
+const TIP_KEY = 'sunplot-tip-rightclick'
+
+/** One-time hint that the 3D view has a right-click menu. */
+function RightClickTip() {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    try { if (localStorage.getItem(TIP_KEY)) return } catch { return }
+    const done = () => { setShow(false); try { localStorage.setItem(TIP_KEY, '1') } catch {} }
+    const t = setTimeout(() => setShow(true), 4000)
+    const off = setTimeout(done, 16000)
+    window.addEventListener('contextmenu', done, { once: true })
+    return () => { clearTimeout(t); clearTimeout(off); window.removeEventListener('contextmenu', done) }
+  }, [])
+  if (!show) return null
+  return (
+    <div className="tip-toast" role="status">
+      Tip: right-click a module or the 3D view for module, view and layer options.
+      <button className="link-btn small" onClick={() => { setShow(false); try { localStorage.setItem(TIP_KEY, '1') } catch {} }}>Got it</button>
+    </div>
+  )
+}
+
 export default function StageMenu() {
   const [menu, setMenu] = useState(null) // { x, y, hit }
   const box = useRef(null)
@@ -65,7 +87,7 @@ export default function StageMenu() {
     if (r.bottom > stage.bottom - 8) el.style.top = `${Math.max(8, menu.y - r.height)}px`
   }, [menu])
 
-  if (!menu) return null
+  if (!menu) return <RightClickTip />
   const st = useSolar.getState()
   const act = (f) => () => { f(); setMenu(null) }
   const manual = install.mode === 'manual'

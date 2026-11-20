@@ -16,7 +16,11 @@ function storedPanels() {
     const v = JSON.parse(localStorage.getItem('solar-panels'))
     if (v && typeof v.left === 'boolean') return v
   } catch {}
-  return { left: true, right: true }
+  // First visit on a narrow window: start with the inputs folded so the 3D view has room.
+  return { left: typeof innerWidth === 'undefined' || innerWidth >= 1100, right: true }
+}
+function storedCollapsed() {
+  try { return JSON.parse(localStorage.getItem('solar-sections')) ?? {} } catch { return {} }
 }
 
 /** A customer link (?view=client&co=…): read-only page with the installer's name and contact. */
@@ -117,6 +121,8 @@ export const useSolar = create((set, get) => ({
   tab: 'system',
   // Side panels: collapsed state, remembered per browser.
   panels: storedPanels(),
+  collapsed: storedCollapsed(), // input sections folded by hand: { id: true }
+  sectionFocus: null, // a workflow step showing only its own input section
   snap: 0,
 
   set: (key, value) => set((s) => ({ params: { ...s.params, [key]: value } })),
@@ -207,6 +213,12 @@ export const useSolar = create((set, get) => ({
 
   setUseMeasured: (useMeasured) => set({ useMeasured }),
   setTab: (tab) => set({ tab }),
+  toggleSection: (id, open) => set((s) => {
+    const collapsed = { ...s.collapsed, [id]: !open }
+    try { localStorage.setItem('solar-sections', JSON.stringify(collapsed)) } catch {}
+    return { collapsed, sectionFocus: null }
+  }),
+  focusSection: (id) => set({ sectionFocus: id }),
   togglePanel: (side) => set((s) => {
     const panels = side === 'focus'
       ? (s.panels.left || s.panels.right ? { left: false, right: false } : { left: true, right: true })

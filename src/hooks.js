@@ -62,13 +62,15 @@ export function useHourlyWeatherFetch() {
     // replaces it when it arrives (a TMY is the better basis for a long-term estimate).
     const t = setTimeout(() => {
       const st = useSolar.getState()
-      st.setHourly({ status: 'loading', key })
+      const started = Date.now()
+      st.setHourly({ status: 'loading', key, started })
       const errors = []
       let pending = 2
       const fail = (name) => (err) => {
         if (ctrl.signal.aborted) return
         errors.push(`${name}: ${err.message}`)
         if (--pending === 0 && useSolar.getState().hourly.status !== 'ready') useSolar.getState().setHourly({ status: 'error', key, error: errors.join('; ') })
+        else if (pending === 0) { const h = useSolar.getState().hourly; if (h.upgrading) useSolar.getState().setHourly({ ...h, upgrading: false }) }
       }
       loadWeather(lat, lon, { signal: ctrl.signal, provider: 'pvgis' })
         .then((data) => { pending--; useSolar.getState().setHourly({ status: 'ready', key, data }) })
@@ -77,7 +79,7 @@ export function useHourlyWeatherFetch() {
         .then((data) => {
           pending--
           const h = useSolar.getState().hourly
-          if (!(h.status === 'ready' && h.key === key && h.data.provider === 'PVGIS')) useSolar.getState().setHourly({ status: 'ready', key, data, upgrading: pending > 0 })
+          if (!(h.status === 'ready' && h.key === key && h.data.provider === 'PVGIS')) useSolar.getState().setHourly({ status: 'ready', key, data, upgrading: pending > 0, started })
         })
         .catch(fail('NASA POWER'))
     }, 400)

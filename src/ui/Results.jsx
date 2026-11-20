@@ -152,6 +152,26 @@ function TileCompare({ p, layout, y }) {
   )
 }
 
+/** While the PVGIS typical year downloads (about a minute the first time), show how far along. */
+function WeatherProgress() {
+  const h = useSolar((s) => s.hourly)
+  const busy = h.status === 'loading' || (h.status === 'ready' && h.upgrading)
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (!busy) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [busy])
+  if (!busy || !h.started) return null
+  const sec = Math.max(0, Math.round((now - h.started) / 1000))
+  return (
+    <div className="card-note" role="status">
+      {h.status === 'loading' ? 'Loading hourly weather' : 'Showing NASA POWER hourly; the PVGIS typical year is on its way'}: {sec} s of about 60 s (first time only, then cached).
+      <span className="weather-progress"><i style={{ width: `${Math.min(95, (sec / 60) * 100)}%` }} /></span>
+    </div>
+  )
+}
+
 function SystemTab({ p, layout, y, mix }) {
   const client = useSolar((s) => s.client)
   const m = panelOf(p)
@@ -182,6 +202,7 @@ function SystemTab({ p, layout, y, mix }) {
         <h3>Energy by month <span className={`badge ${hourly ? 'is-ok' : 'is-warn'}`} title={hourly ? `${y.weather.provider}: ${y.weather.dataset} (${y.weather.kind}). ${y.engine}.` : 'Shown while hourly weather loads; not used in reports.'}>
           {hourly ? `Hourly · ${y.weather.dataset}${hourlyState.upgrading ? ' · typical year loading…' : ''}` : hourlyState.status === 'error' ? 'Estimate · hourly weather unavailable' : 'Estimate · loading hourly weather…'}
         </span></h3>
+        <WeatherProgress />
         {hourly && y.weather.quality && !y.weather.quality.ok && <p className="card-note warn">Weather data check: {y.weather.quality.issues.join('; ')}.</p>}
         {hourlyState.status === 'error' && <p className="card-note warn">Hourly weather could not be loaded ({hourlyState.error}). Figures below are a monthly estimate, not the hourly simulation.</p>}
         <Bars values={y.months} unit="kWh" />

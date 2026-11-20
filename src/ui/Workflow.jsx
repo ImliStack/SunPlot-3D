@@ -18,19 +18,21 @@ export function Workflow() {
   const y = useYield(layout)
   const { e } = useEngineering(layout, y)
   const st = useSolar.getState()
-  const focusLeft = (sel) => {
+  // Open the inputs on just this step's section (the others fold until a title is clicked).
+  const focusLeft = (id) => {
     if (!useSolar.getState().panels.left) st.togglePanel('left')
-    setTimeout(() => document.querySelector(sel)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+    st.focusSection(id)
+    setTimeout(() => document.querySelector(`.section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
   const right = (tab) => {
     if (!useSolar.getState().panels.right) st.togglePanel('right')
     st.setTab(tab)
   }
   const steps = [
-    ['Location', hourly.status === 'ready' ? 'done' : hourly.status === 'error' ? 'warn' : 'busy', () => focusLeft('.section-location'), `${p.placeName || 'Custom site'}: ${hourly.status === 'ready' ? hourly.data.dataset : hourly.status}`],
-    ['Site', layout.surface > 0 ? 'done' : 'todo', () => focusLeft('.site-picker'), `${Math.round(layout.surface || 0)} m² usable surface`],
+    ['Location', hourly.status === 'ready' ? 'done' : hourly.status === 'error' ? 'warn' : 'busy', () => focusLeft('location'), `${p.placeName || 'Custom site'}: ${hourly.status === 'ready' ? hourly.data.dataset : hourly.status}`],
+    ['Site', layout.surface > 0 ? 'done' : 'todo', () => focusLeft('structure'), `${Math.round(layout.surface || 0)} m² usable surface`],
     ['Equipment', e ? (e.ok ? 'done' : 'warn') : 'todo', () => right('electrical'), e ? `${e.inverter.n} × ${e.inverter.label}${e.ok ? '' : ': checks need attention'}` : 'Place modules first'],
-    ['Layout', layout.count > 0 ? 'done' : 'todo', () => focusLeft('.section-modules'), `${layout.count} modules, ${layout.kwp.toFixed(1)} kWp`],
+    ['Layout', layout.count > 0 ? 'done' : 'todo', () => focusLeft('modules'), `${layout.count} modules, ${layout.kwp.toFixed(1)} kWp`],
     ['Shading', shading.status === 'ready' && y.shaded ? 'done' : 'busy', () => { if (!useSolar.getState().layers.shade) st.toggleLayer('shade') }, y.shaded ? `${((y.shadingLoss ?? 0) * 100).toFixed(1)} % beam loss` : 'Ray casting…'],
     ['Simulation', y.source === 'hourly' ? 'done' : 'busy', () => right('system'), y.source === 'hourly' ? `${Math.round(y.annual).toLocaleString('en-IN')} kWh/yr, hourly` : 'Waiting for hourly weather'],
     ['Finance', layout.count > 0 ? 'done' : 'todo', () => right('money'), 'Payback, IRR, scenarios'],

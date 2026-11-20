@@ -50,12 +50,33 @@ export function Toggle({ k, label, hint }) {
   )
 }
 
-function Section({ title, icon, children, aside }) {
+function Section({ title, icon, children, aside, id }) {
+  const key = id ?? String(title).toLowerCase().replace(/[^a-z]+/g, '-')
+  const focus = useSolar((s) => s.sectionFocus)
+  const folded = useSolar((s) => !!s.collapsed[key])
+  const open = focus ? focus === key : !folded
   return (
-    <section className={`section section-${String(title).toLowerCase().replace(/[^a-z]+/g, '-')}`}>
-      <h2 className="section-title"><Icon name={icon} size={16} />{title}{aside}</h2>
-      {children}
+    <section className={`section section-${key} ${open ? '' : 'is-folded'}`}>
+      <h2 className="section-title">
+        <button className="section-toggle" aria-expanded={open} onClick={() => useSolar.getState().toggleSection(key, !open)}>
+          <Icon name={icon} size={16} />{title}<span className="chev" aria-hidden>{open ? '▾' : '▸'}</span>
+        </button>
+        {aside}
+      </h2>
+      {open && children}
     </section>
+  )
+}
+
+/** Shown while a workflow step has narrowed the inputs to one section. */
+function FocusBar() {
+  const focus = useSolar((s) => s.sectionFocus)
+  if (!focus) return null
+  return (
+    <div className="focus-bar">
+      <span>Showing one step's inputs</span>
+      <button className="link-btn small" onClick={() => useSolar.getState().focusSection(null)}>Show all sections</button>
+    </div>
   )
 }
 
@@ -175,6 +196,7 @@ export default function Inputs() {
     <aside className="inputs" aria-label="Design inputs">
       <Brand />
       <p className="lede">Lay out PV on homes, buildings, carports, shelters, airports or open land — with measured climate.</p>
+      <FocusBar />
 
       <SitePicker />
 
@@ -200,7 +222,7 @@ export default function Inputs() {
         </label>
       </Section>
 
-      <Section title={structure} icon={isHouse ? 'home' : SITES[p.site] ? p.site : 'ruler'}>
+      <Section id="structure" title={structure} icon={isHouse ? 'home' : SITES[p.site] ? p.site : 'ruler'}>
         <Field k="length" label={p.site === 'busstop' ? 'Shelter length' : p.site === 'airport' ? 'Terminal length' : HOUSES.includes(p.site) && p.site !== 'shed' ? 'Length (along ridge)' : 'Length'}
           min={p.site === 'busstop' ? 3 : 4} max={p.site === 'airport' ? 600 : p.site === 'ground' ? 300 : p.site === 'industrial' ? 300 : 80} step={0.5} unit="m" />
         <Field k="spans" label="Spans (gables side by side)" min={1} max={6} hint="Each span is one portal frame bay across the shed." />
