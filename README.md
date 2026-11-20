@@ -254,13 +254,19 @@ npm install
 npm run dev        # → http://localhost:5181
 ```
 
-Climate data comes from NASA POWER the first time you open a place, then from the browser cache.
+Hourly weather comes from PVGIS (a typical year, through the `/api/pvgis` proxy; about a minute the first time) with NASA POWER hourly shown meanwhile, then from the browser cache. No API keys are needed.
 
 | Script | What it does |
 |---|---|
-| `npm run dev` | Dev server with hot reload on port 5181 |
+| `npm run dev` | Dev server with hot reload on port 5181 (includes the PVGIS proxy) |
 | `npm run build` | Static production build into `dist/` |
 | `npm run preview` | Serve `dist/` locally on port 5181 |
+| `npm test` | 200+ tests: SPA, engine vs pvlib, PVWatts same-weather, finance, geometry, exports |
+| `npm run validate:reference` | Regenerate pvlib reference fixtures (Python venv in `validation/`) |
+
+Deploy: `npm run build && npx wrangler deploy` (Node 22). The Worker in `worker/index.js` serves `dist/` and proxies PVGIS. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Accuracy.** The hourly engine reproduces pvlib 0.11 to 0.000 % at nine sites and is within +1.8 to +3.1 % of NREL PVWatts V8 on identical weather. See [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md), [docs/CALCULATION_METHODOLOGY.md](docs/CALCULATION_METHODOLOGY.md) and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 ## ✦ Using SunPlot
 
@@ -356,8 +362,8 @@ flowchart LR
     S --> L["layout.js<br/>planes · rows · canopies · keep-outs"]
     L --> V["Site · Arrays<br/>3D scene"]
     L --> W["shading.worker.js<br/>ray-cast every module"]
-    N["NASA POWER<br/>10-year monthly"] --> C["climate.js"]
-    C --> Y["solar.js<br/>transpose · losses · P90"]
+    N["PVGIS TMY · NASA POWER<br/>hourly weather"] --> C["engine/weather.js"]
+    C --> Y["engine/simulate.js<br/>SPA · Perez · SAPM · PVWatts"]
     W --> Y
     L --> Y
     Y --> R["Results · Proposal PDF"]
@@ -368,8 +374,8 @@ flowchart LR
 |---|---|
 | **Layout** | `layout.js` is one pure function. Roofs become planes (eave, slope, usable half-width at each height — so hips and valleys come free); flat roofs and land become rack rows spaced for the winter-noon sun; canopies and shelters become tilted decks. Every module gets a stable key (array · row · position · stack). |
 | **Rendering** | All modules are one instanced mesh with a painted cell texture; ghosts for click-to-install are a second instanced mesh. Buildings, trees, cars and aircraft are procedural — no model files. Reflections from a local `RoomEnvironment`, ambient occlusion from N8AO. |
-| **Climate** | NASA POWER monthly all-sky / clear-sky irradiance, temperature, rain, snowfall and snow depth for the last ten complete years, cached in the browser. |
-| **Energy** | Measured horizontal irradiation is split into beam and diffuse (Collares-Pereira & Rabl), transposed per plane, then reduced by ray-cast shading (beam only), Kimber-style soiling, snow cover, cell temperature (−0.35 %/°C) and 14 % system losses. Checked against PVGIS-class results within about 5 %. |
+| **Weather** | PVGIS 5.3 typical meteorological year (hourly GHI, DNI, DHI, temperature, wind), NASA POWER hourly as fallback, plus ten NASA POWER years for rain, snow and the P90 spread. Cached in the browser, with quality checks. |
+| **Energy** | Hour by hour (`src/engine/`): NREL SPA sun position → Perez transposition → ray-cast beam shading → physical IAM → soiling and snow → SAPM cell temperature → PVWatts DC → system losses → inverter efficiency and clipping. Validated against pvlib and PVWatts V8. |
 | **Shading** | `shading.js` puts module quads, roof planes, obstacle boxes and tree crowns in a plan grid and marches a ray to the sun from every module centre — 12 days × half-hourly, weighted by beam on that module. Runs in a Web Worker. |
 | **Proposal** | `report.js` draws the PDF with jsPDF (vector charts, two 3D captures), loaded only when you make one. |
 
