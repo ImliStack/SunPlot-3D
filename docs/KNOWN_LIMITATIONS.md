@@ -4,12 +4,12 @@ SunPlot produces concept and pre-feasibility designs. It is not a bankable energ
 
 ## Energy
 
-- **Shading.** Obstruction shading is ray-cast per module centre for beam light, as a monthly fraction per array. Not modelled:
-  - partial shading within a module and bypass-diode behaviour (electrical mismatch from a shaded cell string)
-  - per-module sky-view loss of diffuse light
+- **Shading.** The ray cast samples 9 points per module, 3 along each of 3 bypass-diode substrings. A substring with any shaded point loses its beam light. Diffuse light is reduced by each module's blocked sky view, from 48 cosine-weighted rays. Beyond 2,500 modules, one point per substring is used. Not modelled:
+  - mismatch between modules in one string (a shaded module limiting its whole string) and the MPPT's behaviour
+  - anisotropic sky shading: circumsolar light is treated like the rest of the sky
   - terrain and far horizon (PVGIS can supply a horizon profile, but it is not applied yet)
 
-  Expect real losses to exceed the figure shown wherever shade falls on part of a string.
+  The diode rule is conservative for shade that clips just a corner, and optimistic for strings where one shaded module drags down the rest.
 - **Layout options** are compared without obstruction shading. Rows are spaced for winter-solstice noon. Applying an option re-runs the ray cast.
 - **Bifacial gain** is not modelled. Bifacial modules are simulated as monofacial, which is conservative.
 - **Spectral and low-light effects** are not modelled beyond PVWatts DC, which is linear in irradiance with a temperature coefficient.

@@ -50,7 +50,7 @@ Before-screenshots are in `docs/before/`.
 
 ## Not done yet
 
-- Sub-module shading with a bypass-diode model, a sky-view factor and a terrain horizon
+- Terrain horizon and string-level mismatch in shading
 - Hourly battery dispatch
 - A single-diode (CEC) engineering mode
 - The PDF report has not been extended with the methodology, assumptions and scenarios sections

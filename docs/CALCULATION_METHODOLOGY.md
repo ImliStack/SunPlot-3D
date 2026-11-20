@@ -60,7 +60,14 @@ energy kWh/MWh, angles in degrees, azimuth clockwise from true north, temperatur
   mid-month day (SPA sun). Blockers are other modules, roof planes, parapets, obstacles (stair rooms,
   tanks, HVAC, vents), neighbouring buildings and trees, and samples are weighted by clear-sky beam. The
   result is a monthly beam-loss fraction per array, which the hourly engine applies to beam irradiance.
-  This is a geometric (irradiance) loss; electrical mismatch from partial shading is not modelled (see limitations).
+  Each module is sampled at 9 points: 3 along each of its 3 bypass-diode substrings (cell strings run
+  along the long side). For each sun position, a substring with any shaded point loses its beam light,
+  because a series string runs at its weakest cell's current or the diode bypasses it. The electrical beam
+  loss is therefore (shaded substrings ÷ 3), against (shaded points ÷ 9) for area alone. Both are
+  reported, and energy uses the electrical one.
+- **Sky view (diffuse shading).** From each module centre, 48 cosine-weighted directions on a Fibonacci
+  spiral over the module's hemisphere, above the horizon, are traced. The unblocked share multiplies the
+  sky-diffuse irradiance for that array. Ground-reflected light is not reduced.
 - **Soiling** (Kimber-style). Dust builds up at a dryness-dependent rate (0.30, 0.20 or 0.12 %/day for
   < 300, < 800 or ≥ 800 mm of rain a year). Each 10 mm of monthly rain or the cleaning interval resets it,
   and the monthly loss is the average over the cycle, averaged over ten NASA years. Until rain data loads,

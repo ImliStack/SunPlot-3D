@@ -4,5 +4,5 @@ import { computeShading } from './shading.js'
 self.onmessage = (e) => {
   const { id, scene, site } = e.data
   const result = computeShading(scene, site, (progress) => self.postMessage({ id, progress }))
-  self.postMessage({ id, result }, [result.perModule.buffer])
+  self.postMessage({ id, result }, [result.perModule.buffer, result.perModuleSky.buffer])
 }

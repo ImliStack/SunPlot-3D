@@ -64,8 +64,8 @@ export const METRICS = {
   shadingLoss: {
     id: 'shadingLoss', label: 'Shading loss', unit: '%',
     formula: '(POA reference − POA after shading) ÷ POA reference, energy-weighted over the year',
-    inputs: 'Per-module ray casting against modules, roof, obstacles, trees, neighbours; monthly beam fraction per array',
-    assumptions: 'Geometric/irradiance loss on beam light; electrical mismatch from partial shading is not separately modelled',
+    inputs: 'Ray casting from 9 points per module (3 per bypass-diode substring) against modules, roof, obstacles, parapets, trees and neighbours, half-hourly on 12 days; 48 cosine-weighted sky rays per module for diffuse',
+    assumptions: 'Beam: a substring with any shaded point loses its beam light (bypass diode or current limited). Diffuse: isotropic sky, reduced by the blocked share of the module\'s sky view. Mismatch between modules in one string is not modelled',
   },
   temperatureLoss: {
     id: 'temperatureLoss', label: 'Temperature loss', unit: '%',

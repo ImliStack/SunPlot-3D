@@ -112,4 +112,4 @@ These differences are mostly weather data: PVGIS-ERA5 and SARAH against NSRDB, p
 
 ## Status
 
-The engine reproduces pvlib exactly and agrees with PVWatts V8 within about 3 % on identical weather. Whole-pipeline differences against other tools are explained by the weather datasets. The tool is **not** declared production-ready: see `KNOWN_LIMITATIONS.md`, in particular the shading approximation and the four missing PVWatts sites.
+The engine reproduces pvlib exactly and agrees with PVWatts V8 within about 3 % on identical weather. Whole-pipeline differences against other tools are explained by the weather datasets. The tool is **not** declared production-ready: see `KNOWN_LIMITATIONS.md`, in particular the remaining shading simplifications (no string mismatch or horizon) and the four missing PVWatts sites.

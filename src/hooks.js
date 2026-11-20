@@ -107,7 +107,9 @@ export function useYield(layout) {
   const { lat, lon, climate: cls, cleanDays } = params
   const data = useMeasured && climate.status === 'ready' ? climate.data : null
   const wx = hourly.status === 'ready' && hourly.key === weatherKey(lat, lon) ? hourly.data : null
-  const shade = shading.status === 'ready' && shading.key === shadingKey(params, install) ? shading.perArray : null
+  const shadeOk = shading.status === 'ready' && shading.key === shadingKey(params, install)
+  const shade = shadeOk ? shading.perArray : null
+  const skyView = shadeOk ? shading.skyView ?? null : null
   const panel = panelOf(params)
   const inv = pickInverters(layout.kwp, params.inverter, params.invCount)
   const acRating = inv.n * inv.inv.ac * 1000
@@ -120,7 +122,7 @@ export function useYield(layout) {
       const ss = data ? soilingSnowMonthly(data, arrays[0]?.tilt ?? 20, cleanDays) : null
       const sim = simulate({
         weather: wx, lat, lon,
-        arrays: arrays.map((a, k) => ({ tilt: a.tilt, azimuth: a.azimuth, pdc0: a.kwp * 1000, gamma: (panel.gPmax ?? -0.35) / 100, mount, shadeBeam: shade?.[k] })),
+        arrays: arrays.map((a, k) => ({ tilt: a.tilt, azimuth: a.azimuth, pdc0: a.kwp * 1000, gamma: (panel.gPmax ?? -0.35) / 100, mount, shadeBeam: shade?.[k], skyView: skyView?.[k] })),
         acRating, albedo: wx.albedo ?? 0.2,
         soiling: ss ? ss.soil : new Array(12).fill(0.02), // PVWatts default 2 % until rain data loads
         snow: ss ? ss.snow : null,
@@ -143,6 +145,7 @@ export function useYield(layout) {
         years: yearly ? yearly.map((y) => ({ year: y.year, kwh: (sim.annual * y.ghi) / meanGhi })) : [],
         poaKwh: w8.poaRef,
         shadingLoss: w8.poaRef ? w8.shade / w8.poaRef : 0,
+        skyView: skyView ? arrays.reduce((t, a, k) => t + (skyView[k] ?? 1) * a.kwp, 0) / (layout.kwp || 1) : null,
         tempLossPct: w8.poaRef ? w8.temp / w8.poaRef : 0,
         unshadedAnnual: unshaded,
         losses: [
@@ -168,7 +171,7 @@ export function useYield(layout) {
     const { months, perArray, shadingLoss } = estimateYield(arrays, lat, CLIMATES[cls].k, shade)
     const annual = months.reduce((a, b) => a + b, 0)
     return { ...base, months, perArray, annual, shadingLoss, source: 'model', estimate: true, pr: PERFORMANCE_RATIO, specific: layout.kwp ? annual / layout.kwp : 0 }
-  }, [layout, lat, lon, cls, data, shade, cleanDays, wx, climate, acRating, mount, panel.gPmax])
+  }, [layout, lat, lon, cls, data, shade, skyView, cleanDays, wx, climate, acRating, mount, panel.gPmax])
 }
 
 /** Air temperature extremes for string sizing: measured when NASA POWER is in, else a latitude guess. */

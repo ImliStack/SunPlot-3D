@@ -82,7 +82,16 @@ function ShadeStat({ y }) {
       </div>
     )
   }
-  return <Stat value={fmt(y.shadingLoss * 100, 1)} unit="%" label="shading loss" metric="shadingLoss" tip="Beam light blocked by trees, other rows and obstacles, over the year" />
+  // Shaded area alone vs the bypass-diode figure used for energy, and the sky view for diffuse.
+  const mean = (rows) => (rows?.length ? rows.flat().reduce((a, b) => a + b, 0) / rows.flat().length : null)
+  const geo = mean(shading.perArrayGeometric)
+  const elec = mean(shading.perArray)
+  const tip = [
+    'Light lost to shade over the year: direct sun blocked (bypass-diode rule) plus sky light blocked.',
+    geo != null ? `Direct sun on shaded area ${fmt(geo * 100, 1)} %, with bypass diodes ${fmt(elec * 100, 1)} % (monthly mean).` : '',
+    y.skyView != null ? `Sky view ${fmt(y.skyView * 100, 1)} % of the open-sky diffuse.` : '',
+  ].filter(Boolean).join(' ')
+  return <Stat value={fmt(y.shadingLoss * 100, 1)} unit="%" label="shading loss" metric="shadingLoss" tip={tip} />
 }
 
 /** Where the sunlight goes: plane-of-array irradiation → each loss → AC energy. */
