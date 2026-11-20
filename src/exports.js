@@ -2,11 +2,11 @@
 // and a short orbit video of the design (.webm). Everything is built in the browser.
 
 import { panelOf, portraitOf } from './presets.js'
-import { MONTHS, sunPosition, clearSky } from './solar.js'
+import { MONTHS } from './solar.js'
+import { siteZone, offsetMinutes } from './engine/clock.js'
 import { getControls, getRenderer } from './scene/capture.js'
 
 const RAD = Math.PI / 180
-const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 const scale = (a, k) => a.map((v) => v * k)
@@ -77,38 +77,54 @@ function layerDef(name, color) {
 }
 
 /**
- * 8760 hourly generation (solar time) for a typical year: each array's clear-sky plane-of-array
- * shape, scaled so every month adds up to the design's monthly energy.
+ * The hourly simulation as CSV: one row per weather-file interval, with UTC and site clock time,
+ * plane-of-array irradiance, cell temperature, DC and AC energy. Rows add up exactly to the
+ * annual figure shown in the app (nothing is rescaled).
  */
-export function hourlyCsv(y, p) {
-  const arrays = y.arrays.filter((a) => a.count)
-  const shape = []
-  let day = 1
-  for (let m = 0; m < 12; m++) {
-    for (let d = 0; d < MONTH_DAYS[m]; d++, day++) {
-      for (let h = 0; h < 24; h++) {
-        let w = 0
-        for (const a of arrays) {
-          const beta = a.tilt * RAD
-          const gamma = a.azimuth * RAD
-          for (const t of [h + 0.25, h + 0.75]) {
-            const { alt, az } = sunPosition(p.lat, day, t)
-            if (alt <= 0.02) continue
-            const sinAlt = Math.sin(alt)
-            const { dni, dhi } = clearSky(day, sinAlt)
-            const cosInc = sinAlt * Math.cos(beta) + Math.cos(alt) * Math.sin(beta) * Math.cos(az - gamma)
-            w += a.kwp * (dni * Math.max(0, cosInc) + (dhi * (1 + Math.cos(beta))) / 2)
-          }
-        }
-        shape.push({ m, d: d + 1, h, w })
-      }
-    }
+export function hourlyCsv(y, p, weather) {
+  if (!y.sim) throw new Error('Hourly weather has not loaded yet')
+  const { time, ac, dc, poa, tCell } = y.sim.hourly
+  const zone = siteZone(p.lat, p.lon, p.tz)
+  const pad = (n) => String(n).padStart(2, '0')
+  const rows = [
+    `# SunPlot hourly simulation, ${y.weather.provider} ${y.weather.dataset} (${y.weather.kind}); ${y.engine}`,
+    `# Site ${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}; ${(y.kwp ?? 0).toFixed(2)} kWp DC, ${(y.acRating / 1000).toFixed(1)} kW AC; clock time in ${zone.label}`,
+    'Interval start (UTC),Local time,GHI W/m2,Air °C,POA W/m2,Cell °C,DC kWh,AC kWh',
+  ]
+  for (let i = 0; i < time.length; i++) {
+    const t = time[i]
+    const loc = new Date(t + (zone.iana ? offsetMinutes(zone.iana, t) : zone.fixedMinutes) * 60000)
+    const ts = `${loc.getUTCFullYear()}-${pad(loc.getUTCMonth() + 1)}-${pad(loc.getUTCDate())} ${pad(loc.getUTCHours())}:${pad(loc.getUTCMinutes())}`
+    rows.push([new Date(t).toISOString().slice(0, 16).replace('T', ' '), ts,
+      weather ? weather.ghi[i].toFixed(0) : '', weather ? weather.tAir[i].toFixed(1) : '',
+      poa[i].toFixed(1), tCell[i].toFixed(1), (dc[i] / 1000).toFixed(4), (ac[i] / 1000).toFixed(4)].join(','))
   }
-  const monthW = new Array(12).fill(0)
-  shape.forEach((s) => { monthW[s.m] += s.w })
-  const rows = ['Month,Day,Hour (solar),kWh']
-  shape.forEach((s) => rows.push(`${MONTHS[s.m]},${s.d},${s.h},${(monthW[s.m] ? (s.w / monthW[s.m]) * y.months[s.m] : 0).toFixed(3)}`))
   return rows.join('\n')
+}
+
+/** The design and its results as JSON: inputs to reopen it, plus the figures and their basis. */
+export function projectJson({ p, install, layout, y, f }) {
+  return JSON.stringify({
+    format: 'sunplot-project', version: 1, exported: new Date().toISOString(),
+    params: p,
+    install: install.mode === 'manual' ? { mode: 'manual', sel: Object.keys(install.sel) } : { mode: 'auto' },
+    results: {
+      modules: layout.count, kwpDc: layout.kwp, acKw: y.acRating ? y.acRating / 1000 : null,
+      annualKwh: y.annual, specificYield: y.specific, performanceRatio: y.pr ?? null, p90Kwh: y.p90 ?? null,
+      monthlyKwh: y.months, losses: y.losses ?? null,
+      basis: y.source === 'hourly' ? { engine: y.engine, weather: y.weather } : { engine: 'estimate (hourly weather not loaded)' },
+      finance: f ? { gross: f.gross, net: f.net, payback: f.payback, irr: f.irr, npv: f.npv, lcoe: f.lcoe } : null,
+    },
+  }, null, 2)
+}
+
+/** Read a file written by projectJson. Returns { params, install } or throws with a reason. */
+export function parseProjectJson(text) {
+  let v
+  try { v = JSON.parse(text) } catch { throw new Error('Not a JSON file') }
+  if (v?.format !== 'sunplot-project' || typeof v.params !== 'object') throw new Error('Not a SunPlot project file')
+  if (v.version > 1) throw new Error('Made by a newer SunPlot version')
+  return { params: v.params, install: v.install ?? { mode: 'auto' } }
 }
 
 /** Monthly summary CSV: energy per month, per array. */

@@ -9,6 +9,7 @@ import { climateClass } from '../climate.js'
 import Icon from './Icon.jsx'
 import Stat from './Stat.jsx'
 import { ElectricalTab, MoneyTab } from './Engineering.jsx'
+import Alternatives from './Alternatives.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 const energy = (kwh) => (kwh >= 1e6 ? [fmt(kwh / 1e6, 2), 'GWh'] : kwh >= 1e4 ? [fmt(kwh / 1e3, 1), 'MWh'] : [fmt(kwh), 'kWh'])
@@ -142,7 +143,8 @@ function TileCompare({ p, layout, y }) {
   )
 }
 
-function SystemTab({ p, layout, y }) {
+function SystemTab({ p, layout, y, mix }) {
+  const client = useSolar((s) => s.client)
   const m = panelOf(p)
   const cost = layout.kwp * 1000 * p.cost
   const savings = y.annual * p.tariff
@@ -230,6 +232,8 @@ function SystemTab({ p, layout, y }) {
       </section>
 
       {layout.facts.length > 0 && <ul className="facts">{layout.facts.map((f) => <li key={f}>{f}</li>)}</ul>}
+
+      {!client && <Alternatives p={p} y={y} mix={mix} />}
 
       <p className="fine">
         Concept estimate, not an engineering design. {hourly
@@ -430,7 +434,7 @@ export default function Results() {
         ))}
       </div>
       <div className="tab-body" aria-live="polite">
-        {tab === 'system' && <SystemTab p={p} layout={layout} y={y} />}
+        {tab === 'system' && <SystemTab p={p} layout={layout} y={y} mix={eng.mix} />}
         {tab === 'electrical' && <ElectricalTab p={p} layout={layout} eng={eng} />}
         {tab === 'money' && <MoneyTab p={p} layout={layout} eng={eng} survey={survey} />}
         {tab === 'climate' && <ClimateTab p={p} y={y} />}

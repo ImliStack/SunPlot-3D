@@ -785,3 +785,11 @@ select, .text {
 .demo-head { display: block; margin-top: 12px; }
 .demo-head small { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
 .tool:disabled { opacity: .35; cursor: default; }
+.table-wrap { overflow-x: auto; margin: 8px 0 4px; }
+.alternatives .mini-chip { margin-top: 4px; }
+.alternatives tr.is-best td:first-child { font-weight: 600; }
+.import-file { position: relative; display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 9px; border-top: 1px solid var(--line); cursor: pointer; color: var(--ink); }
+.import-file:hover { background: var(--soft); }
+.import-file span { display: flex; flex-direction: column; }
+.import-file small { color: var(--muted); }
+.import-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
