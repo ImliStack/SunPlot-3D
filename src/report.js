@@ -202,7 +202,12 @@ export async function buildProposal(d) {
 
   const L = d.layout
   const Y = d.yield
-  const measured = Y.source === 'measured'
+  const hourly = Y.source === 'hourly'
+  // Hourly simulation or the NASA monthly model: both carry measured weather, losses and P90 years.
+  const measured = Y.source === 'measured' || (hourly && Y.years?.length > 0)
+  // Weather dataset label: PDF fonts lack the en dash, and PVGIS datasets already carry the name.
+  const wxDs = hourly ? (Y.weather.dataset.startsWith(Y.weather.provider) ? Y.weather.dataset : `${Y.weather.provider} ${Y.weather.dataset}`).replace(/–/g, '-') : ''
+  const wxName = hourly ? wxDs : measured ? `NASA POWER ${Y.years[0].year}-${Y.years[Y.years.length - 1].year}` : 'Clear-sky model'
   const cuf = L.kwp ? Y.annual / (L.kwp * 8760) : 0
   const place = d.params.placeName || `${num(d.params.lat, 2)}, ${num(d.params.lon, 2)}`
   const dateStr = d.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -242,7 +247,9 @@ export async function buildProposal(d) {
   y = para(
     `${num(L.count)} x ${m.watt} W modules (${num(L.moduleArea)} m²) are laid out over ${L.arrays.filter((a) => a.count).length} array${L.arrays.filter((a) => a.count).length === 1 ? '' : 's'}, ` +
     `facing ${num(d.params.azimuth)}° ${bearing(d.params.azimuth)}. ` +
-    (measured
+    (hourly
+      ? `Energy is simulated hour by hour for a typical year (${wxDs}), with a model checked against NREL's pvlib and PVWatts, and the system is expected to deliver ${energy(Y.annual)} in a typical year${Y.p90 ? ` and at least ${energy(Y.p90)} in nine years out of ten (P90)` : ''}.`
+      : measured
       ? `Energy is modelled from ten years of measured NASA POWER weather for this location (${Y.years[0].year}-${Y.years[Y.years.length - 1].year}), and the system is expected to deliver ${energy(Y.annual)} in a typical year and at least ${energy(Y.p90)} in nine years out of ten (P90).`
       : `Energy is modelled with a clear-sky model and a ${CLIMATES[d.params.climate].label.toLowerCase()} climate factor.`) +
     (Y.shaded ? ` A shading study of every module across the year puts shading losses at ${num(Y.shadingLoss * 100, 1)} %.` : ''),
@@ -340,7 +347,7 @@ export async function buildProposal(d) {
 
   // ─── Page 3: energy ───
   doc.addPage()
-  y = heading('Energy yield', measured ? `NASA POWER ${Y.years[0].year}-${Y.years[Y.years.length - 1].year}` : 'Clear-sky model')
+  y = heading('Energy yield', wxName)
   y = h2('Energy by month (kWh)', y)
   y = bars(Y.months, { y: y + 2, unit: 'kWh' })
   y = tiles([
@@ -349,13 +356,13 @@ export async function buildProposal(d) {
     [`${num((Y.pr ?? 0) * 100, 1)} %`, 'performance ratio'],
     [Y.shaded ? `${num(Y.shadingLoss * 100, 1)} %` : '-', 'shading loss'],
   ], y, 15)
-  if (measured && Y.losses) {
+  if ((measured || hourly) && Y.losses) {
     y = h2('Where the sunlight goes (per year)', y + 2)
     const max = Y.poaKwh || 1
     const rows = [['Sunlight on modules', Y.poaKwh, 0, SUN, energy(Y.poaKwh)]]
     let left = Y.poaKwh
     for (const l of Y.losses) {
-      rows.push([l.label, l.kwh, left - l.kwh, { shade: RED, soil: [176, 136, 80], snow: [143, 179, 224], temp: [224, 123, 57], system: MUTED }[l.key], `-${num((l.kwh / max) * 100, 1)} %`])
+      rows.push([l.label, l.kwh, left - l.kwh, ({ shade: RED, iam: [120, 144, 176], soil: [176, 136, 80], snow: [143, 179, 224], temp: [224, 123, 57], system: MUTED, inverter: [110, 110, 140], clip: [160, 90, 160] }[l.key] ?? MUTED), `-${num((l.kwh / max) * 100, 1)} %`])
       left -= l.kwh
     }
     rows.push(['Delivered (AC)', Y.annual, 0, GREEN, energy(Y.annual)])
@@ -372,7 +379,7 @@ export async function buildProposal(d) {
     })
     y += 4
   }
-  if (measured) {
+  if (measured && Y.years?.length && Y.p90) {
     y = h2('Energy year by year, with P90', y + 2)
     const vals = Y.years.map((r) => r.kwh)
     const mx = Math.max(...vals)
@@ -443,7 +450,7 @@ export async function buildProposal(d) {
     }
     y = h2('Rain (bars) and snowfall water-equivalent (dots), mm per month', y)
     y = bars(s.monthly.map((x) => x.rain * 30), { y: y + 2, dots: s.monthly.map((x) => (x.snow ?? 0) * 30), color: [143, 179, 224], unit: 'mm', h: 30 })
-    if (measured && Y.losses) {
+    if ((measured || hourly) && Y.losses) {
       const soil = Y.losses.find((l) => l.key === 'soil').kwh / Y.poaKwh
       const snow = Y.losses.find((l) => l.key === 'snow').kwh / Y.poaKwh
       const clean_ = d.params.cleanDays ? `with cleaning every ${d.params.cleanDays} days` : 'with rain as the only cleaning'
@@ -583,21 +590,63 @@ export async function buildProposal(d) {
     [`${num(F.env.coal, 1)} t`, 'coal not burnt a year'],
   ], y, 15)
 
+  // ─── Method, scenarios, assumptions, limitations ───
+  doc.addPage()
+  y = heading('How these figures were worked out', place)
+  y = h2('Energy model', y)
+  y = para(hourly
+    ? `Hour-by-hour simulation on ${wxDs} (${Y.weather.kind}): NREL Solar Position Algorithm; Perez 1990 sky model for light on the tilted modules; ray-cast shading with a bypass-diode rule (9 points per module) and a sky-view factor for diffuse light; physical reflection (IAM) losses; soiling from rain events and the cleaning interval; snow cover; SAPM cell temperature (${(Y.mount ?? '').replace(/_/g, ' ')}); PVWatts DC model with the module's temperature coefficient (${num(m.gPmax ?? -0.35, 2)} %/°C); ${num(Y.sim?.losses?.combined ?? 9.85, 2)} % system losses (mismatch, wiring, connections, light-induced degradation, nameplate, availability); inverter efficiency curve with clipping at ${num((Y.acRating ?? 0) / 1000, 1)} kW AC.`
+    : measured
+      ? 'Monthly model on NASA POWER means (CERES / MERRA-2), ten complete years, with beam/diffuse split (Collares-Pereira & Rabl) and isotropic transposition. The hourly simulation was not available when this report was made.'
+      : `Clear-sky model x ${CLIMATES[p.climate].label.toLowerCase()} factor ${CLIMATES[p.climate].k}; performance ratio ${num((Y.pr ?? 0) * 100, 1)} %. Weather data was not available when this report was made.`, y, 8.4)
+  if (hourly) y = para('Validation: the engine reproduces NREL pvlib 0.11 to within 0.01 % at nine sites worldwide and is within about 3 % of NREL PVWatts V8 on identical weather (docs/VALIDATION_REPORT.md in the SunPlot repository).', y, 8, MUTED)
+  if (Y.losses && Y.poaKwh) {
+    y = room(y, 12 + Y.losses.length * 6, 'How these figures were worked out', 'continued')
+    y = h2('Losses, from sunlight on the modules to AC energy', y + 2)
+    y = table(['Step', 'kWh per year', 'Share of sunlight'],
+      [['Sunlight on modules (unshaded)', num(Y.poaKwh), '100 %'],
+        ...Y.losses.map((l) => [l.label, `-${num(l.kwh)}`, `${num((l.kwh / Y.poaKwh) * 100, 1)} %`]),
+        ['Delivered (AC)', num(Y.annual), `${num((Y.annual / Y.poaKwh) * 100, 1)} %`]], y, [80, 45, 45])
+  }
+  const SC = d.eng?.scenarios
+  if (SC) {
+    y = room(y, 40, 'How these figures were worked out', 'continued')
+    y = h2('Scenarios', y + 2)
+    y = table(['Scenario', 'What changes', 'Payback', 'IRR', 'NPV'],
+      ['conservative', 'base', 'optimistic'].map((k) => {
+        const s0 = SC[k]
+        return [s0.label, s0.note, s0.f.payback != null ? `${num(s0.f.payback, 1)} yr` : '-', s0.f.irr != null ? `${num(s0.f.irr * 100, 1)} %` : '-', money(s0.f.npv)]
+      }), y, [26, 72, 22, 18, 32])
+  }
+  const SE = d.eng?.sensitivity
+  if (SE?.length) {
+    y = room(y, 12 + SE.length * 6, 'How these figures were worked out', 'continued')
+    y = h2('What moves the NPV most (each input ±10 %)', y + 2)
+    y = table(['Input', '-10 %', '+10 %'], SE.map((r) => [r.name, money(r.low), money(r.high)]), y, [70, 50, 50])
+  }
+
   y = room(y, 70, 'Assumptions & sources', place)
-  y = h2('Assumptions & sources', y + 2)
+  y = h2('Assumptions', y + 2)
+  const life = p.lifetime ?? 25
   const assumptions = [
-    `Modules: ${m.label}, ${m.note}. ${E ? `Inverters: ${E.inverter.n} x ${E.inverter.label}, DC:AC ${num(E.dcac, 2)}.` : ''} Output -1 % in year 2 then -0.4 %/yr.`,
+    `Modules: ${m.label}, ${m.note}. ${E ? `Inverters: ${E.inverter.n} x ${E.inverter.label}, DC:AC ${num(E.dcac, 2)}.` : ''} Output falls ${num(p.degradation ?? 0.4, 1)} %/yr after year 1 (year-1 light-induced loss is in the system losses).`,
     `Use: ${d.eng?.mix?.useYear ? `${num(d.eng.mix.useYear)} kWh a year, ${PROFILES[d.eng.mix.profile]?.label.toLowerCase()} load pattern, matched hour by hour (${num(d.eng.mix.selfShare * 100)} % of solar used as it is made)` : 'not given'}; ${{ net: 'net metering (units banked over the year)', billing: 'net billing', gross: 'gross metering' }[p.metering]}${p.zeroExport ? ', zero export' : ''}${p.todDisc ? `; ToD solar-hour rebate ${num(p.todDisc)} %` : ''}.`,
-    `Money: tariff ${num(p.tariff, 2)} rising ${num(p.escalation, 1)} %/yr${p.useKwh ? `; ${num(p.useKwh)} kWh/month used on site, surplus at ${num(p.exportRate || p.tariff * 0.4, 2)}/kWh` : '; all solar energy valued at the tariff (net metering)'}; O&M ${num(p.omPct, 1)} % of cost a year rising 5 %/yr; inverter replacement (~10 % of cost) in year 12; discount rate ${num(p.discount, 1)} %.`,
-    measured
-      ? 'Weather: NASA POWER monthly means (CERES / MERRA-2) for the last ten complete years. Horizontal irradiation split into beam and diffuse (Collares-Pereira & Rabl) and transposed per plane (isotropic sky, albedo 0.2). Temperature loss -0.35 %/°C above 25 °C cell; 14 % system losses.'
-      : `Weather: ASHRAE clear-sky model x ${CLIMATES[d.params.climate].label.toLowerCase()} factor ${CLIMATES[d.params.climate].k}; performance ratio ${Y.pr}.`,
-    'Soiling: dust build-up by rainfall class, cleared by rain events and the cleaning interval. Snow: covered days from snowfall, tilt and temperature.',
-    Y.shaded ? 'Shading: every module centre ray-cast to the sun every half hour on a mid-month day, against trees, rows, roof planes and obstacles; beam light only.' : 'Shading: not yet computed when this report was made.',
-    `Rows and setbacks: rows spaced for no shade at winter-solstice noon; roof setbacks per IFC/IRC (18" ridge, 36" pathways) unless changed.`,
-    'Data: NASA POWER (power.larc.nasa.gov); OpenStreetMap contributors (ODbL); Open-Meteo geocoding.',
+    `Money: ${life}-year analysis; tariff ${num(p.tariff, 2)} rising ${num(p.escalation, 1)} %/yr${p.useKwh ? `; ${num(p.useKwh)} kWh/month used on site, surplus at ${num(p.exportRate || p.tariff * 0.4, 2)}/kWh` : '; all solar energy valued at the tariff'}; O&M ${num(p.omPct, 1)} % of cost a year rising ${num(p.omRise ?? 5, 1)} %/yr; inverter replacement (${num(p.inverterShare ?? 10)} % of cost) in year ${p.inverterYear ?? 12}; discount rate ${num(p.discount, 1)} %${p.buyer === 'business' ? `; company tax ${num(p.taxRate, 2)} %, 40 % accelerated depreciation` : ''}.`,
+    `P90: the year-to-year spread of ten NASA POWER years of sunshine (P90 = P50 - 1.28 sigma); it does not include model or data uncertainty (a few % more).`,
+    `Rows and setbacks: rows spaced for no shade at winter-solstice noon; edge setback ${num(p.edge, 2)} m.`,
   ]
   assumptions.forEach((a) => { y = para(`- ${a}`, y, 7.8, INK) })
+  y = room(y, 40, 'Assumptions & sources', 'continued')
+  y = h2('Data sources', y + 2)
+  y = para(`- ${hourly && Y.weather.provider === 'PVGIS' ? 'PVGIS 5.3, European Commission JRC (re.jrc.ec.europa.eu/pvg_tools): typical meteorological year.' : 'NASA POWER (power.larc.nasa.gov): hourly and monthly weather.'} NASA POWER also for rain, snow and the ten-year spread.`, y, 7.8)
+  y = para('- Equipment: generic datasheet classes, or the CEC module and inverter lists via NREL SAM where a named model is chosen. Incentives: MNRE / CBDT notices as dated in the app. Maps: OpenStreetMap contributors (ODbL), Overture Maps, Esri imagery.', y, 7.8)
+  y = room(y, 40, 'Assumptions & sources', 'continued')
+  y = h2('Limitations', y + 2)
+  ;[
+    'Shading uses 9 points per module with a bypass-diode rule and a sky-view factor; mismatch between modules in a string, terrain and the far horizon are not modelled.',
+    'Bifacial gain is not counted (conservative). No structural, wind or seismic check is made.',
+    'Tariffs, incentives and metering rules change; check them with the DISCOM before signing.',
+  ].forEach((t) => { y = para(`- ${t}`, y, 7.8, INK) })
   y = para('This is a concept proposal, not an engineering design. Structural capacity, electrical design, local codes, permits, grid connection and final pricing must be confirmed by a site survey and a qualified installer.', y + 2, 7.8, MUTED)
 
   const lists = checklists(p)
