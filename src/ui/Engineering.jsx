@@ -47,7 +47,12 @@ export function ElectricalTab({ p, layout, eng }) {
             <span className="field-label">Model class</span>
             <select value={p.inverter} onChange={(ev) => set('inverter', ev.target.value)}>
               <option value="auto">Auto ({inv.label})</option>
-              {Object.entries(INVERTERS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              <optgroup label="Generic classes (IEC markets)">
+                {Object.entries(INVERTERS).filter(([, v]) => !v.library).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </optgroup>
+              <optgroup label="CEC-listed (US models, NREL SAM)">
+                {Object.entries(INVERTERS).filter(([, v]) => v.library).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </optgroup>
             </select>
           </label>
           <label className="field mini">
@@ -57,7 +62,7 @@ export function ElectricalTab({ p, layout, eng }) {
           </label>
         </div>
         <p className="card-note">
-          {inv.vmax} V max · MPPT {inv.mpptMin}–{inv.mpptMax} V · {inv.mppts} MPPT{inv.mppts > 1 ? 's' : ''} × {inv.imax} A. Generic class; match the brand datasheet.
+          {inv.vmax} V max · MPPT {inv.mpptMin}–{inv.mpptMax} V · {inv.mppts} MPPT{inv.mppts > 1 ? 's' : ''} × {inv.imax} A. {inv.library ? `${inv.market}, CEC listing (MPPT count not in the data, so checked as one tracker); confirm the IEC variant's datasheet.` : 'Generic class; match the brand datasheet.'}
         </p>
       </section>
 

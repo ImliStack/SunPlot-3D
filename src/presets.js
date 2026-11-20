@@ -2,12 +2,27 @@
 
 // Module sizes from current datasheets (mm → m). Short side `w`, long side `h`. Electrical values at STC:
 // open-circuit / max-power voltage and current, temperature coefficients in %/°C (Voc, Pmax).
+import { LIBRARY_MODULES, LIBRARY_SOURCE } from './data/equipment.js'
+
+// Generic modules: typical datasheet values for a class of module, not a named product.
 export const PANELS = {
   res430: { label: '430 W residential', note: '108 half-cell TOPCon · 1722 × 1134 mm', w: 1.134, h: 1.722, watt: 430, kg: 21, voc: 38.9, vmp: 32.4, isc: 14.0, imp: 13.28, bVoc: -0.25, gPmax: -0.30 },
   com550: { label: '550 W commercial', note: '144 half-cell mono · 2278 × 1134 mm', w: 1.134, h: 2.278, watt: 550, kg: 28, voc: 49.9, vmp: 41.9, isc: 13.95, imp: 13.13, bVoc: -0.27, gPmax: -0.35 },
   dcr545: { label: '545 W DCR mono PERC', note: 'Made-in-India cells (ALMM List-II) · 2279 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.279, watt: 545, kg: 27.5, dcr: true, voc: 49.6, vmp: 41.8, isc: 13.9, imp: 13.04, bVoc: -0.27, gPmax: -0.35 },
   dcr580: { label: '580 W DCR TOPCon', note: 'Made-in-India cells (ALMM List-II) · 2278 × 1134 mm · subsidy-eligible', w: 1.134, h: 2.278, watt: 580, kg: 28, dcr: true, voc: 51.9, vmp: 43.4, isc: 14.2, imp: 13.37, bVoc: -0.25, gPmax: -0.30 },
   utl620: { label: '620 W utility bifacial', note: '132 half-cell TOPCon · 2382 × 1134 mm', w: 1.134, h: 2.382, watt: 620, kg: 33, voc: 47.9, vmp: 40.1, isc: 16.4, imp: 15.47, bVoc: -0.25, gPmax: -0.29 },
+}
+
+// Named modules from the CEC list (NREL SAM library): sourced electrical ratings. Weight isn't in
+// the CEC data, so it's estimated at 11.6 kg/m² (typical glass/backsheet large format) and labelled.
+for (const m of LIBRARY_MODULES) {
+  PANELS[`lib:${m.id}`] = {
+    label: `${m.maker.split(/\s+(Co|Ltd|LIMITED|Limited|Private|PRIVATE|Technologies|Power|Green|Energy|Photovoltaic|Solar)\b/i)[0]} ${m.model} · ${m.watt} W`,
+    note: `${m.tech}${m.bifacial ? ', bifacial' : ''} · ${Math.round(m.h * 1000)} × ${Math.round(m.w * 1000)} mm${m.dimsDerived ? ' (length from listed area)' : ''} · ${m.efficiency} % · ${LIBRARY_SOURCE.modules}`,
+    w: m.w, h: m.h, watt: m.watt, kg: Math.round(m.h * m.w * 11.6 * 10) / 10, kgEstimated: true,
+    voc: m.voc, vmp: m.vmp, isc: m.isc, imp: m.imp, bVoc: m.bVoc, gPmax: m.gPmax, bifacial: m.bifacial,
+    library: true, maker: m.maker, model: m.model,
+  }
 }
 
 // Roof-integrated solar tile (BIPV): replaces the roofing on pitched roofs, laid long side along the

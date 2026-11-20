@@ -3,6 +3,8 @@
 // materials. Generic string-inverter classes stand in for brands (Growatt, Sungrow, Solis, Huawei,
 // Fronius… all publish near-identical windows); check the chosen datasheet before ordering.
 
+import { LIBRARY_INVERTERS } from './data/equipment.js'
+
 /** Generic grid-tie string inverters: AC kW, max DC volts, MPPT window, MPPT count, max input A per MPPT. */
 export const INVERTERS = {
   r2: { label: '2 kW · 1-phase', ac: 2, phase: 1, vmax: 500, mpptMin: 60, mpptMax: 450, mppts: 1, imax: 16 },
@@ -16,6 +18,15 @@ export const INVERTERS = {
   t50: { label: '50 kW · 3-phase', ac: 50, phase: 3, vmax: 1100, mpptMin: 180, mpptMax: 1000, mppts: 5, imax: 32 },
   t110: { label: '110 kW · 3-phase', ac: 110, phase: 3, vmax: 1100, mpptMin: 200, mpptMax: 1000, mppts: 10, imax: 32 },
   t250: { label: '250 kW · 3-phase', ac: 250, phase: 3, vmax: 1500, mpptMin: 500, mpptMax: 1500, mppts: 12, imax: 30 },
+}
+
+// CEC-listed inverters (NREL SAM library, US/UL variants). The CEC data has no MPPT count, so each
+// is treated as one tracker with the listed maximum DC current — conservative for string checks.
+for (const i of LIBRARY_INVERTERS) {
+  INVERTERS[`lib:${i.id}`] = {
+    label: `${i.maker} ${i.name.split(':').pop().trim()} · ${i.ac} kW`, ac: i.ac, phase: i.vac >= 400 ? 3 : 1, vmax: i.vmax,
+    mpptMin: i.mpptMin, mpptMax: i.mpptMax, mppts: 1, imax: i.idcMax, library: true, market: i.market,
+  }
 }
 
 const RHO = 0.0193 // Ω·mm²/m, copper at ~50 °C
@@ -44,7 +55,7 @@ export function pickInverters(kwp, key = 'auto', count = 0) {
     const inv = INVERTERS[key]
     return { key, inv, n: count || Math.max(1, Math.round(kwp / 1.15 / inv.ac)) }
   }
-  const order = Object.entries(INVERTERS)
+  const order = Object.entries(INVERTERS).filter(([, v]) => !v.library)
   const homes = kwp <= 7.2 ? order.filter(([, v]) => v.phase === 1) : order.filter(([, v]) => v.phase === 3)
   const fits = homes
     .map(([k, inv]) => {

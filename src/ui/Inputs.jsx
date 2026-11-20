@@ -253,7 +253,12 @@ export default function Inputs() {
         <label className="field">
           <span className="field-head"><span className="field-label">Module</span></span>
           <select value={p.panel} onChange={(e) => set('panel', e.target.value)}>
-            {Object.entries(PANELS).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+            <optgroup label="Generic (typical datasheet values)">
+              {Object.entries(PANELS).filter(([, m]) => !m.library).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+            </optgroup>
+            <optgroup label="Named modules (CEC list via NREL SAM)">
+              {Object.entries(PANELS).filter(([, m]) => m.library).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+            </optgroup>
           </select>
           <span className="field-hint">{PANELS[p.panel].note}</span>
         </label>
