@@ -21,7 +21,7 @@ export const equatorAzimuth = (lat) => (lat >= 0 ? 180 : 0)
 
 /** The parameter changes worth trying for this kind of site. Each: { id, label, patch }. */
 export function variantsFor(p) {
-  const out = [{ id: 'current', label: 'Current design', patch: {} }]
+  const out = [{ id: 'current', label: 'Current', patch: {} }]
   const eq = equatorAzimuth(p.lat)
   const add = (id, label, patch) => {
     // Skip a variant identical to the design on screen.
@@ -29,18 +29,18 @@ export function variantsFor(p) {
     out.push({ id, label, patch })
   }
   if (RACKED.includes(p.site)) {
-    for (const t of [5, 10, 15, 20, 25, 30]) add(`tilt${t}`, `Racks at ${t}°, facing the equator`, { rackTilt: t, eastWest: false, azimuth: eq })
-    add('ew', 'East-west back-to-back racks', { eastWest: true })
+    for (const t of [5, 10, 15, 20, 25, 30]) add(`tilt${t}`, `${t}° racks`, { rackTilt: t, eastWest: false, azimuth: eq })
+    add('ew', 'East-west racks', { eastWest: true })
   }
   if (p.site === 'ground') {
     const best = Math.round(Math.min(40, Math.max(5, Math.abs(p.lat) * 0.76 + 3.1)))
-    for (const t of [...new Set([best - 10, best - 5, best, best + 5].filter((t) => t >= 5 && t <= 45))]) add(`gt${t}`, `Tables at ${t}°`, { groundTilt: t, azimuth: eq })
-    add('stack1', 'One module per table (lower structure)', { stack: 1 })
-    add('stack3', 'Three modules per table', { stack: 3 })
+    for (const t of [...new Set([best - 10, best - 5, best, best + 5].filter((t) => t >= 5 && t <= 45))]) add(`gt${t}`, `${t}° tables`, { groundTilt: t, azimuth: eq })
+    add('stack1', '1 module per table', { stack: 1 })
+    add('stack3', '3 modules per table', { stack: 3 })
   }
-  if (PITCHED_BOTH.includes(p.site)) add('both', p.bothFaces ? 'Front faces only' : 'Use both roof faces', { bothFaces: !p.bothFaces })
-  if (!p.tiles) add('orient', p.portrait ? 'Modules in landscape' : 'Modules in portrait', { portrait: !p.portrait })
-  if (p.target > 0) add('fill', 'Fill the usable space (no kWp cap)', { target: 0 })
+  if (PITCHED_BOTH.includes(p.site)) add('both', p.bothFaces ? 'Front faces only' : 'Both roof faces', { bothFaces: !p.bothFaces })
+  if (!p.tiles) add('orient', p.portrait ? 'Landscape modules' : 'Portrait modules', { portrait: !p.portrait })
+  if (p.target > 0) add('fill', 'Fill the roof (no cap)', { target: 0 })
   return out
 }
 

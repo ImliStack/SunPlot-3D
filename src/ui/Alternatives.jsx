@@ -2,6 +2,14 @@ import { useState } from 'react'
 import { useSolar } from '../store.js'
 import { generateAlternatives, winners, OBJECTIVES } from '../alternatives.js'
 
+// Compact money for the narrow table: ₹56.3 L, ₹1.2 Cr, £12.4k.
+const short = (cur, n) => {
+  if (!Number.isFinite(n)) return '—'
+  const a = Math.abs(n)
+  const sign = n < 0 ? '−' : ''
+  if (cur === '₹') return a >= 1e7 ? `${sign}₹${(a / 1e7).toFixed(1)} Cr` : a >= 1e5 ? `${sign}₹${(a / 1e5).toFixed(1)} L` : `${sign}₹${Math.round(a).toLocaleString('en-IN')}`
+  return a >= 1e6 ? `${sign}${cur}${(a / 1e6).toFixed(1)}M` : a >= 1e3 ? `${sign}${cur}${(a / 1e3).toFixed(1)}k` : `${sign}${cur}${Math.round(a)}`
+}
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 
 /** Compare layout options for this site with the hourly engine, and apply one. */
@@ -44,19 +52,18 @@ export default function Alternatives({ p, y, mix }) {
               {stale && <p className="card-note warn">The design changed since these were generated.</p>}
               <div className="table-wrap">
                 <table className="arrays compare">
-                  <thead><tr><th>Option</th><th>kWp</th><th>MWh/yr</th><th>kWh/kWp</th><th>{p.buyer === 'resco' ? 'Net cost' : 'Payback'}</th><th>NPV</th><th /></tr></thead>
+                  <thead><tr><th>Option</th><th>kWp</th><th title="kWh per kWp per year">Yield</th><th>{p.buyer === 'resco' ? 'Cost' : 'Payback'}</th><th>NPV</th><th /></tr></thead>
                   <tbody>
                     {res.opts.map((o) => {
                       const tags = OBJECTIVES.filter(([k]) => res.win[k] === o.id).map(([, l]) => l)
                       return (
                         <tr key={o.id} className={o.id === 'current' ? 'is-best' : ''}>
-                          <td>{o.label}{tags.length > 0 && <small>{tags.join(' · ')}</small>}</td>
+                          <td title={`${fmt(o.annual / 1000, 1)} MWh a year`}>{o.label}{tags.length > 0 && <span className="opt-tags">{tags.map((t) => <i key={t}>{t}</i>)}</span>}</td>
                           <td>{fmt(o.kwp, 1)}</td>
-                          <td>{fmt(o.annual / 1000, 1)}</td>
                           <td>{fmt(o.specific)}</td>
-                          <td>{p.buyer === 'resco' ? `${p.cur}${fmt(o.fin?.net)}` : o.fin?.payback != null ? `${fmt(o.fin.payback, 1)} yr` : '—'}</td>
-                          <td>{o.fin ? `${p.cur}${fmt(o.fin.npv)}` : '—'}</td>
-                          <td>{o.id !== 'current' && o.count > 0 && <button className="mini-chip" onClick={() => apply(o)}>Apply</button>}</td>
+                          <td>{p.buyer === 'resco' ? short(p.cur, o.fin?.net) : o.fin?.payback != null ? `${fmt(o.fin.payback, 1)} y` : '—'}</td>
+                          <td>{o.fin ? short(p.cur, o.fin.npv) : '—'}</td>
+                          <td>{o.id !== 'current' && o.count > 0 && <button className="mini-chip" onClick={() => apply(o)} aria-label={`Apply ${o.label}`}>Use</button>}</td>
                         </tr>
                       )
                     })}

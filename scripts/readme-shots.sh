@@ -115,10 +115,10 @@ shot analytics-dock "#site=flat&day=172&hour=10" 16 \
   "[...document.querySelectorAll('[role=tab]')].find(t => t.textContent === 'Year heat map')?.click(); 'x'"
 shot context-menu "#site=flat&day=172&hour=10" 10 \
   "const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); const k = window.__installKeys?.[40]; if (k) window.__solar.setState({ ctxHit: { i: 40, key: k, arr: 0, installed: true, at: performance.now() } }); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + r.width * 0.55, clientY: r.top + r.height * 0.3 })); 'x'"
-shot layout-options "#site=flat&day=172&hour=10" 16 \
+shot layout-options "#site=flat&day=172&hour=10" 6 \
   "window.__solar.getState().setTab('system'); 'x'" \
-  "[...document.querySelectorAll('.alternatives button')].find(b => /Generate/.test(b.textContent))?.click(); 'x'" \
-  "setTimeout(() => document.querySelector('.alternatives')?.scrollIntoView(), 1500); 'x'"
+  "new Promise(r => { const t = setInterval(() => { const b = [...document.querySelectorAll('.alternatives button')].find(b => /Generate/.test(b.textContent)); if (b) { clearInterval(t); b.click(); r('x') } }, 500) })" \
+  "new Promise(r => setTimeout(() => { const res = document.querySelector('.results'); const el = document.querySelector('.alternatives'); res.scrollTop = el.offsetTop - 12; r('x') }, 1500))"
 survey survey-checks checks
 survey survey-search search
 survey survey
