@@ -67,6 +67,32 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   </tr>
 </table>
 
+## ✦ New: engineering engine upgrade
+
+Hour-by-hour simulation validated against NREL pvlib (0.000 % at nine sites) and PVWatts V8 (+1.8 to +3.1 % on identical weather), bypass-diode
+shading, scenarios and a sensitivity chart, plus a new workspace: analytics dock, workflow stepper,
+layout options, right-click menu and a fuller site survey. Details: [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md),
+[docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md), [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/analytics-dock.jpg" alt="Analytics dock with a year heat map of hourly output" /></td>
+    <td width="50%"><img src="docs/screenshots/context-menu.jpg" alt="Right-click menu on a module: array, tilt, shading and edit options" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Analytics dock</b>: selected day, year heat map, daily, use, temperature</sub></td>
+    <td align="center"><sub><b>Right-click</b> a module or the view: info, edit, views, layers</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/layout-options.jpg" alt="Layout options compared through the hourly engine" /></td>
+    <td width="50%"><img src="docs/screenshots/survey-checks.jpg" alt="Site survey with water heater, AC units, parapet, roof type, cable route and site checks" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Layout options</b>: tilts, east-west, roof faces, ranked and applied in one click</sub></td>
+    <td align="center"><sub><b>Survey</b>: obstacles, parapet, roof type, wiring and a photo checklist</sub></td>
+  </tr>
+</table>
+
 ## ✦ Features
 
 > How SunPlot compares with Arka360, OpenSolar, Aurora, HelioScope, PV\*SOL and SolarEdge Designer: [docs/COMPETITORS.md](docs/COMPETITORS.md).
@@ -507,12 +533,23 @@ permits and grid connection still need a qualified installer.
 - [x] East-west racking and solar roof tiles (BIPV)
 - [x] Industrial sheds, campus mode, business (after-tax) and RESCO finance, hourly load matching, DG sync
 - [x] Saved projects with several designs, customer link ([gap analysis](docs/GAPS-AND-PLAN.md))
-- [ ] Accounts, CRM pipeline, quotes and invoices (Phase B, needs a backend)
-- [ ] EV / heat-pump future load, time-of-use battery dispatch
+- [x] Hourly engine: NREL SPA, PVGIS TMY / NASA POWER hourly, Perez, SAPM, PVWatts DC and inverter, validated against pvlib and PVWatts V8
+- [x] Bypass-diode shading (9 points per module) and sky-view diffuse loss
+- [x] Scenarios (P90/P10), NPV sensitivity, discounted payback, sourced incentives, CEC equipment library, custom modules
+- [x] Layout options, analytics dock, workflow stepper, undo/redo, autosave, right-click menu, project file import/export
+- [x] Survey: water heater and AC units, parapet height, roof type, cable route, photo checklist, street side from roads
+
+**Next, picked up later**
+- [ ] PVWatts same-weather check for London, Dubai, Sydney and Tromsø (needs an NREL API key; Ajmer and Mumbai done)
+- [ ] Engineering mode: CEC single-diode module model alongside the PVWatts quick mode
+- [ ] Hourly battery dispatch (self-consumption, ToD, backup) and EV / heat-pump future load
+- [ ] Bifacial gain, single-axis trackers
+- [ ] String-level mismatch and terrain / far-horizon shading (PVGIS horizon profile)
+- [ ] White-label settings: installer logo, colours and footer across app, link and PDF
+- [ ] Check against a measured system's production data before calling the engine production-ready
+- [ ] Accounts, CRM pipeline, quotes and invoices; customer leads, e-sign and vendor quotes (needs a backend)
 - [ ] DISCOM net-metering application pack (India)
 - [ ] Pitched roofs and multi-level terraces in the survey
-- [ ] Customer leads, e-sign and vendor quotes (separate backend)
-- [ ] Hourly TMY weather (PVGIS / NREL), bifacial gain, trackers
 - [ ] Wind and snow load zones per region
 
 Research notes and earlier milestones are in [PLAN.md](PLAN.md).

@@ -2,7 +2,7 @@
 
 Date: 20 Nov 2026 · branch `upgrade/engineering-engine` · engine in `src/engine/`
 
-Everything below is reproduced by `npm test` (204 tests: 200 run, 4 skipped while PVWatts fixtures for four sites are not yet downloaded) and the scripts in `validation/`. No figure here was adjusted by hand.
+Everything below is reproduced by `npm test` (218 tests: 214 run, 4 skipped while PVWatts fixtures for four sites are not yet downloaded) and the scripts in `validation/`. No figure here was adjusted by hand.
 
 ## Summary
 
@@ -15,6 +15,7 @@ Everything below is reproduced by `npm test` (204 tests: 200 run, 4 skipped whil
 | Hourly chain, 9 sites | pvlib 0.11.2, same PVGIS TMY, same models | annual AC 0.000 %, worst month 0.000 %, POA ≤ 0.002 W/m², Tcell ≤ 0.001 °C | 0.1 % / 0.5 % / 1 W/m² / 0.05 °C |
 | Model only | NREL PVWatts V8 (8.5.0), PVWatts' own NSRDB weather | POA +0.7 to +1.4 %, AC +1.8 to +3.1 % | 1.5 % / 3.5 % |
 | Whole pipeline | PVWatts V8 and PVGIS PVcalc, each with its own data | see benchmark table | reported, not asserted |
+| Weather consistency | GHI = DNI·cos z + DHI | all 9 files close after the ERA5 beam fix (section 2a) | < 5 % of daytime hours outside ±8 % |
 | Energy bookkeeping | internal | hourly = daily = monthly = annual; loss waterfall closes to < 0.1 % | exact |
 
 ## 1. Solar position
@@ -41,21 +42,30 @@ Tests: `tests/spa.test.js` (22).
 
 Because the inputs and models are identical, any difference is an implementation error.
 
-| Site | Lat, lon | Tilt / azimuth | pvlib kWh | SunPlot kWh | Annual Δ | Worst month Δ | POA Δ | Max hourly POA Δ (W/m²) | Max Tcell Δ (°C) |
-|---|---|---|---|---|---|---|---|---|---|
-| Ahmedabad | 23.03, 72.58 | 23° / 180° | 16921.2 | 16921.2 | 0.000 % | 0.000 % | 0.000 % | 0.002 | 0.000 |
-| Ajmer | 26.45, 74.64 | 26° / 180° | 17872.5 | 17872.5 | 0.000 % | 0.000 % | 0.000 % | 0.002 | 0.000 |
-| Bengaluru | 12.97, 77.59 | 13° / 180° | 16148.6 | 16148.6 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
-| Dubai | 25.20, 55.27 | 25° / 180° | 18307.0 | 18307.0 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
-| London | 51.51, −0.13 | 40° / 180° | 10588.4 | 10588.4 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
-| Mumbai | 19.08, 72.88 | 19° / 180° | 16309.0 | 16309.0 | 0.000 % | 0.000 % | 0.000 % | 0.002 | 0.000 |
-| Quito | −0.18, −78.47 | 0° / 0° | 14278.1 | 14278.1 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
-| Sydney | −33.87, 151.21 | 34° / 0° | 16369.9 | 16369.8 | 0.000 % | 0.000 % | 0.000 % | 0.002 | 0.000 |
-| Tromsø | 69.65, 18.96 | 40° / 180° | 7535.5 | 7535.5 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| Site | Weather | pvlib kWh | SunPlot kWh | Annual Δ | Worst month Δ | POA Δ | Max hourly POA Δ (W/m²) | Max Tcell Δ (°C) |
+|---|---|---|---|---|---|---|---|---|
+| Ahmedabad | PVGIS-ERA5 (beam closed) | 16584.5 | 16584.5 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| Ajmer | PVGIS-ERA5 (beam closed) | 17484.7 | 17484.7 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| Bengaluru | PVGIS-ERA5 (beam closed) | 15850.6 | 15850.6 | 0.000 % | 0.000 % | 0.000 % | 0.000 | 0.000 |
+| Dubai | PVGIS-SARAH3 | 18307.0 | 18307.0 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| London | PVGIS-SARAH3 | 10588.4 | 10588.4 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| Mumbai | PVGIS-ERA5 (beam closed) | 15960.6 | 15960.6 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| Quito | PVGIS-ERA5 (beam closed) | 13930.7 | 13930.7 | 0.000 % | 0.000 % | 0.000 % | 0.000 | 0.000 |
+| Sydney | PVGIS-ERA5 (beam closed) | 16063.8 | 16063.8 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+| Tromsø | PVGIS-ERA5 (beam closed) | 7511.1 | 7511.1 | 0.000 % | 0.000 % | 0.000 % | 0.001 | 0.000 |
+
+Arrays face the equator at a tilt of |latitude| (capped at 40°; flat at Quito).
 
 These sites cover both hemispheres, the equator (a flat array at Quito), high latitude with midnight sun and polar night (Tromsø), desert, monsoon and maritime climates.
 
-Tests: `tests/simulate.test.js` (63).
+Tests: `tests/simulate.test.js` (72).
+
+### 2a. ERA5 beam fix (found during validation)
+
+PVGIS-ERA5 files are stamped mid-hour (`irradiance_time_offset` 0.5), but their beam (DNI) only closes with GHI and DHI if the sun is placed at the top of the hour. The median closure error is 5–6 %: offsets of −0.5, 0, 0.5 and 1 h give medians of 6.0, 0.0, 6.3 and 12.1 % at Ajmer. Used as delivered, each hour's beam is paired with a sun position half an hour away. That overstates morning beam and understates afternoon beam, and annual output came out about 2 % high. PVGIS-SARAH3 files (Dubai, London) close to 0.1 % and are unaffected.
+
+The fix is `closeComponents()` in `src/engine/weather.js`. It keeps GHI and DHI, which are the primary quantities, and derives DNI = (GHI − DHI) / cos z at the stated time. It only applies when a file's median closure error exceeds 1 %, and below 5° sun the beam is never increased. NASA POWER hourly goes through the same check. `validation/reference.py` applies the identical rule, so section 2 stays like for like. Effect on annual AC: ERA5 sites −1.9 to −2.4 %, SARAH sites 0.0 %.
+
 
 ## 3. PVWatts V8 on its own weather (model check)
 
@@ -78,21 +88,21 @@ Notes:
 
 10 kWp, DC/AC 1.2, equator-facing, tilt ≈ |latitude|. Annual AC kWh. `validation/benchmarks.py` → `validation/fixtures/benchmarks.json`.
 
-| Site | SunPlot (PVGIS TMY) | PVWatts V8 (NSRDB TMY) | PVGIS PVcalc (its own loss model) |
-|---|---|---|---|
-| Ahmedabad | 16921 | 16345 | 15839 |
-| Ajmer | 17873 | 17105 | 16597 |
-| Bengaluru | 16149 | 15991 | 15250 |
-| Dubai | 18307 | 17949 | 17242 |
-| London | 10588 | 9450 | 10283 |
-| Mumbai | 16309 | 16470 | 15282 |
-| Quito | 14278 | 16007 | 13261 |
-| Sydney | 16370 | 15799 | 15694 |
-| Tromsø | 7535 | 6756 | 7316 |
+| Site | SunPlot (PVGIS TMY) | PVWatts V8 (NSRDB TMY) | PVGIS PVcalc (its own loss model) | vs PVWatts | vs PVcalc |
+|---|---|---|---|---|---|
+| Ahmedabad | 16584 | 16345 | 15839 | +1.5 % | +4.7 % |
+| Ajmer | 17485 | 17105 | 16597 | +2.2 % | +5.3 % |
+| Bengaluru | 15851 | 15991 | 15250 | −0.9 % | +3.9 % |
+| Dubai | 18307 | 17949 | 17242 | +2.0 % | +6.2 % |
+| London | 10588 | 9450 | 10283 | +12.0 % | +3.0 % |
+| Mumbai | 15961 | 16470 | 15282 | −3.1 % | +4.4 % |
+| Quito | 13931 | 16007 | 13261 | −13.0 % | +5.0 % |
+| Sydney | 16064 | 15799 | 15694 | +1.7 % | +2.4 % |
+| Tromsø | 7511 | 6756 | 7316 | +11.2 % | +2.7 % |
 
 These differences are mostly weather data: PVGIS-ERA5 and SARAH against NSRDB, plus different station distances. Section 3 isolates the model part, which is at most about 3 %.
 
-- **Quito** is the outlier (−11 % against PVWatts). PVGIS-ERA5 is known to under-estimate irradiance in the cloudy Andes.
+- **Quito** is the outlier (−13 % against PVWatts). PVGIS-ERA5 is known to under-estimate irradiance in the cloudy Andes.
 - **London** is +12 % against PVWatts. NSRDB coverage of Europe is thinner, and PVGIS-SARAH is the stronger dataset there.
 
 ## 5. Energy bookkeeping and edge cases

@@ -48,12 +48,19 @@ Branch `upgrade/engineering-engine` (not merged into `main`, not deployed).
 
 Before-screenshots are in `docs/before/`.
 
-## Not done yet
+## Also in this branch
 
-- Terrain horizon and string-level mismatch in shading
-- Hourly battery dispatch
-- A single-diode (CEC) engineering mode
-- The PDF report has not been extended with the methodology, assumptions and scenarios sections
+- Shading with 9 points per module (bypass-diode rule) and a sky-view factor for diffuse light
+- PDF proposal: hourly-engine wording, loss table, scenarios, NPV drivers, data sources and limitations
+- Survey: water heater and AC units, parapet height, roof type, cable route, photo checklist, street side from roads
+- Custom module size and ratings, structure height, right-click menu on the 3D view
+- Foldable input sections with step focus, narrow-screen defaults, weather progress bar, first-visit tip
+
+## Left for later (README roadmap)
+
+- PVWatts same-weather fixtures for London, Dubai, Sydney and Tromsø (needs an NREL API key)
+- Engineering mode with the CEC single-diode module model
+- Hourly battery dispatch; bifacial gain; trackers
+- String-level mismatch and terrain / far-horizon shading
 - White-label configuration
-- PVWatts same-weather fixtures for 4 sites (rate limit)
-- After-screenshots for the README
+- Check against a measured system's production data before calling the engine production-ready

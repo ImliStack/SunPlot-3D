@@ -66,6 +66,16 @@ def run(site, lat, lon):
     pressure = atmosphere.alt2pres(elev)
     sp = pvlib.solarposition.spa_python(tsun, lat, lon, altitude=elev, pressure=pressure, temperature=12)
     zen = sp['apparent_zenith'].values; az = sp['azimuth'].values
+    # Same rule as closeComponents() in src/engine/weather.js: when beam doesn't close with global and
+    # diffuse (median error > 1 % for sun above 15°), derive it as (GHI − DHI) / cos z.
+    cz = np.cos(np.radians(zen))
+    m = (df.ghi.values > 50) & (sp['apparent_elevation'].values > 15)
+    err = np.abs(df.dni.values * cz + df.dhi.values - df.ghi.values)[m] / df.ghi.values[m]
+    median = float(np.sort(err)[len(err) >> 1]) if len(err) else 0.0
+    if median > 0.01:
+        beam_h = np.maximum(0, df.ghi.values - df.dhi.values)
+        df['dni'] = np.where(cz > 0.0872, np.minimum(beam_h / np.where(cz > 0.0872, cz, 1), 1400),
+                             np.minimum(df.dni.values, beam_h / 0.0872))
     tilt = round(min(abs(lat), 40)); azim = 180 if lat >= 0 else 0
     dni_extra = irradiance.get_extra_radiation(tsun).values
     am = atmosphere.get_relative_airmass(zen)
@@ -89,7 +99,7 @@ def run(site, lat, lon):
         'site': site, 'lat': lat, 'lon': lon, 'elevation': elev, 'tilt': tilt, 'azimuth': azim,
         'pdc0': PDC0, 'ac': AC, 'eta': ETA, 'gamma': GAMMA, 'albedo': ALBEDO, 'losses_pct': float(loss * 100),
         'weather': {'dataset': f"{d['inputs']['meteo_data']['radiation_db']} {d['inputs']['meteo_data']['year_min']}-{d['inputs']['meteo_data']['year_max']}",
-                    'offset_h': off, 'annual_ghi_kwh_m2': float(df.ghi.sum() / 1000)},
+                    'offset_h': off, 'closure_median': median, 'closure_fixed': median > 0.01, 'annual_ghi_kwh_m2': float(df.ghi.sum() / 1000)},
         'annual_kwh': float(pac.sum() / 1000),
         'monthly_kwh': [float(monthly.get(m, 0)) for m in range(1, 13)],
         'poa_kwh_m2': float(np.nansum(tot['poa_global']) / 1000),

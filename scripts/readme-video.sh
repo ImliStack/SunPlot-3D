@@ -19,7 +19,7 @@ js() { b js "$1" >/dev/null; }
 
 b viewport 1280x800 >/dev/null
 b goto "http://localhost:5181/?rec=$RANDOM#day=355&hour=7.6" >/dev/null
-js "localStorage.setItem('solar-theme','light'); localStorage.setItem('solar-panels', JSON.stringify({left:true,right:true})); 'ok'"
+js "localStorage.setItem('sunplot-tip-rightclick','1'); localStorage.removeItem('sunplot-autosave:v1'); localStorage.removeItem('solar-sections'); localStorage.setItem('solar-theme','light'); localStorage.setItem('solar-panels', JSON.stringify({left:true,right:true})); 'ok'"
 b goto "http://localhost:5181/?rec=$RANDOM#day=355&hour=7.6" >/dev/null
 sleep 8
 start=$(date +%s)
@@ -33,8 +33,14 @@ for r in 0 1 2 3; do
 done
 js "window.__solar.getState().setTab('electrical'); 'ok'"; cap 3
 js "window.__solar.getState().setTab('money'); 'ok'"; cap 3
-js "window.__solar.getState().setTab('system'); 'ok'"; cap 1
-js "window.__solar.getState().setInstallMode('auto'); window.__solar.getState().setSite('industrial'); 'ok'"; cap 4
+js "window.__solar.getState().setTab('system'); window.__solar.getState().setInstallMode('auto'); 'ok'"; cap 1
+# New: layout options through the hourly engine, the analytics dock, and the right-click menu.
+js "[...document.querySelectorAll('.alternatives button')].find(b => /Generate/.test(b.textContent))?.click(); setTimeout(() => document.querySelector('.alternatives')?.scrollIntoView({ behavior: 'smooth' }), 800); 'ok'"; cap 4
+js "document.querySelector('.dock-toggle')?.click(); 'ok'"; cap 2
+js "[...document.querySelectorAll('[role=tab]')].find(t => t.textContent === 'Year heat map')?.click(); 'ok'"; cap 3
+js "document.querySelector('.dock-toggle')?.click(); const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); const k = window.__installKeys?.[40]; if (k) window.__solar.setState({ ctxHit: { i: 40, key: k, arr: 0, installed: true, at: performance.now() } }); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + r.width * 0.55, clientY: r.top + r.height * 0.3 })); 'ok'"; cap 3
+js "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 'ok'"
+js "window.__solar.getState().setSite('industrial'); 'ok'"; cap 4
 js "window.__solar.getState().patch({ buyer: 'business', useKwh: 40000, metering: 'billing', todDisc: 20 }); window.__solar.getState().setTab('money'); 'ok'"; cap 3
 js "window.__solar.getState().patch({ buyer: 'home', useKwh: 0, metering: 'net', todDisc: 0 }); window.__solar.getState().setTab('system'); window.__solar.getState().setSite('flat'); window.__solar.getState().setInstallMode('auto'); 'ok'"; cap 1
 js "window.__solar.getState().set('weather', 'snow'); 'ok'"; cap 3

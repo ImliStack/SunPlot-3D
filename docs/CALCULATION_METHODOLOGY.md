@@ -35,6 +35,11 @@ energy kWh/MWh, angles in degrees, azimuth clockwise from true north, temperatur
 - **Quality checks** ([`weather.js`](../src/engine/weather.js) `qualityChecks`): missing values, negative
   irradiance, GHI above 1.2 × extraterrestrial, and closure GHI ≈ DNI·cos z + DHI (±8 % + 25 W/m²) on hours
   with the sun above 10°. Failures are shown in the app, not hidden.
+- **Consistent beam** ([`weather.js`](../src/engine/weather.js) `closeComponents`): PVGIS-ERA5 beam only closes
+  with the sun at the top of the hour, while the file is stamped mid-hour. When a file's median closure error
+  exceeds 1 %, DNI is derived as (GHI − DHI) / cos z at the stated time, keeping GHI and DHI as delivered. Below
+  5° sun the beam is never increased. ERA5 sites come out about 2 % lower than with the raw beam; SARAH files are
+  unchanged. See VALIDATION_REPORT.md §2a.
 - **Caching.** The browser caches each weather file per location and provider, and the Worker caches PVGIS
   responses at the edge for 30 days. Invented values are never used: if both providers fail, the app says so
   and shows a labelled monthly estimate instead of the simulation.

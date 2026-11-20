@@ -1,8 +1,8 @@
 {
  "ahmedabad": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 16921.182214678753,
-   "poa_kwh_m2": 2155.9553497449515,
+   "ac_annual": 16584.488148225948,
+   "poa_kwh_m2": 2110.022934925363,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {
@@ -50,8 +50,8 @@
  },
  "ajmer": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 17872.535426921484,
-   "poa_kwh_m2": 2265.499836190506,
+   "ac_annual": 17484.71829349222,
+   "poa_kwh_m2": 2212.764330247959,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {
@@ -99,8 +99,8 @@
  },
  "bengaluru": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 16148.646535803084,
-   "poa_kwh_m2": 2018.763802336018,
+   "ac_annual": 15850.576396375127,
+   "poa_kwh_m2": 1977.02082402479,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {
@@ -246,8 +246,8 @@
  },
  "mumbai": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 16309.04510406541,
-   "poa_kwh_m2": 2062.406573958655,
+   "ac_annual": 15960.552209604135,
+   "poa_kwh_m2": 2013.0018060058042,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {
@@ -295,8 +295,8 @@
  },
  "quito": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 14278.108769556842,
-   "poa_kwh_m2": 1719.3473007425753,
+   "ac_annual": 13930.749878133814,
+   "poa_kwh_m2": 1673.7838000000002,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {
@@ -344,8 +344,8 @@
  },
  "sydney": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 16369.852126249949,
-   "poa_kwh_m2": 1989.9921680485857,
+   "ac_annual": 16063.805384682306,
+   "poa_kwh_m2": 1948.9844760547549,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {
@@ -393,8 +393,8 @@
  },
  "tromso": {
   "sunplot_pvgis_tmy": {
-   "ac_annual": 7535.496792336661,
-   "poa_kwh_m2": 874.3751896265238,
+   "ac_annual": 7511.080550500466,
+   "poa_kwh_m2": 871.2509559065983,
    "weather": "PVGIS-ERA5 2005-2023"
   },
   "pvwatts_v8": {

@@ -208,8 +208,8 @@ select, .text {
   flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
   background: var(--sun); color: #1c1608;
 }
-.sun-sliders { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.sun-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.sun-sliders { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 4px; } /* wide enough for slider + chips; the weather picker wraps below otherwise */
+.sun-row { display: grid; grid-template-columns: 64px minmax(80px, 1fr) auto; align-items: center; gap: 10px; }
 .sun-row input[type='range']::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, var(--sun) var(--p, 50%), var(--line-strong) var(--p, 50%));
 }

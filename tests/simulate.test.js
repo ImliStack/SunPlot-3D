@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
-import { parsePvgisTmy, qualityChecks } from '../src/engine/weather.js'
+import { parsePvgisTmy, qualityChecks, closeComponents } from '../src/engine/weather.js'
 import { simulate, dailyTotals } from '../src/engine/simulate.js'
 
 // SunPlot's hourly engine against pvlib 0.11 (validation/reference.py) on the same PVGIS TMY file,
@@ -13,7 +13,7 @@ export const results = {}
 
 describe.each(sites)('engine vs pvlib: $site', (ref) => {
   const json = JSON.parse(readFileSync(new URL(`../validation/data/pvgis_tmy_${ref.site}.json`, import.meta.url)))
-  const weather = parsePvgisTmy(json)
+  const weather = closeComponents(parsePvgisTmy(json), ref.lat, ref.lon) // as loadWeather does
   const sim = simulate({
     weather, lat: ref.lat, lon: ref.lon, elevation: ref.elevation,
     arrays: [{ tilt: ref.tilt, azimuth: ref.azimuth, pdc0: ref.pdc0, gamma: ref.gamma, mount: 'open_rack_glass_polymer' }],
@@ -50,8 +50,12 @@ describe.each(sites)('engine vs pvlib: $site', (ref) => {
     const end = w.poaRef - w.shade - w.iam - w.soil - w.snow - w.temp - w.system - w.inverter - w.clip
     expect(Math.abs(end - sim.annual)).toBeLessThan(0.001 * sim.annual + 0.01)
   })
-  it('weather passes quality checks', () => {
+  it('beam is made consistent only where the file needs it (ERA5), as in the pvlib reference', () => {
+    expect(weather.closureFixed).toBe(ref.weather.closure_fixed)
+  })
+  it('weather passes quality checks, including closure once made consistent', () => {
     const q = qualityChecks(weather, ref.lat, ref.lon)
+    expect(q.closure).toBeLessThan(0.05)
     expect(q.missing).toBe(0)
     expect(q.negative).toBe(0)
     expect(q.hours).toBe(8760)

@@ -8,9 +8,9 @@
 // Nothing is ever invented: if both fail, the caller gets an error and the UI says so.
 
 import { spa } from './spa.js'
-import { extraRadiation } from './irradiance.js'
+import { extraRadiation, alt2pres } from './irradiance.js'
 
-const CACHE_VERSION = 'wx:v1'
+const CACHE_VERSION = 'wx:v2' // v2: beam made consistent with GHI and DHI (closeComponents)
 
 /**
  * @typedef {object} Weather
@@ -47,6 +47,37 @@ function load(k) {
   } catch {
     return null
   }
+}
+
+/**
+ * Make beam irradiance consistent with global and diffuse: DNI = (GHI − DHI) ÷ cos z, with the sun at
+ * the file's stated time inside the hour. Applied only when a file doesn't already close (median
+ * relative error above 1 % for sun above 15°). PVGIS-ERA5 files need it: their beam closes with the
+ * sun at the top of the hour while the irradiance is stamped mid-hour, which mis-pairs beam and sun
+ * geometry by half an hour (≈ 6 % median, opposite in morning and afternoon). GHI and DHI are the
+ * primary quantities and are kept as they are. Below 5° sun the beam is capped, never increased.
+ * validation/reference.py applies the same rule so the pvlib comparison stays like for like.
+ */
+export function closeComponents(w, lat, lon) {
+  const n = w.time.length
+  const elevation = w.elevation ?? 0
+  const o = { elevation, pressure: alt2pres(elevation) / 100, temperature: 12 } // mbar, as in simulate.js
+  const cz = new Float64Array(n)
+  const errs = []
+  for (let i = 0; i < n; i++) {
+    const s = spa(w.time[i] + w.offsetHours * 3600000, lat, lon, o)
+    cz[i] = Math.cos((s.apparentZenith * Math.PI) / 180)
+    if (w.ghi[i] > 50 && s.apparentElevation > 15) errs.push(Math.abs(w.dni[i] * cz[i] + w.dhi[i] - w.ghi[i]) / w.ghi[i])
+  }
+  errs.sort((a, b) => a - b)
+  const median = errs.length ? errs[errs.length >> 1] : 0
+  if (median <= 0.01) return { ...w, closureFixed: false, closureMedian: median }
+  const dni = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    const beamH = Math.max(0, w.ghi[i] - w.dhi[i])
+    dni[i] = cz[i] > 0.0872 ? Math.min(beamH / cz[i], 1400) : Math.min(w.dni[i], beamH / 0.0872)
+  }
+  return { ...w, dni, closureFixed: true, closureMedian: median }
 }
 
 /** PVGIS TMY JSON → Weather. Months come from different years; they're mapped onto one non-leap
@@ -186,11 +217,11 @@ export async function loadWeather(lat, lon, { signal, provider = 'pvgis' } = {})
   let w
   if (provider === 'pvgis') {
     const json = await fetchJson(`/api/pvgis/tmy?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&outputformat=json`, signal, 150000)
-    w = parsePvgisTmy(json)
+    w = closeComponents(parsePvgisTmy(json), lat, lon)
   } else {
     const year = new Date().getUTCFullYear() - 1
     const url = `https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=ALLSKY_SFC_SW_DWN,ALLSKY_SFC_SW_DNI,ALLSKY_SFC_SW_DIFF,T2M,WS10M,ALLSKY_SRF_ALB&community=RE&longitude=${lon.toFixed(3)}&latitude=${lat.toFixed(3)}&start=${year}0101&end=${year}1231&format=JSON&time-standard=UTC`
-    w = parseNasaHourly(await fetchJson(url, signal, 120000), year)
+    w = closeComponents(parseNasaHourly(await fetchJson(url, signal, 120000), year), lat, lon)
   }
   w.quality = qualityChecks(w, lat, lon)
   w.lat = lat
