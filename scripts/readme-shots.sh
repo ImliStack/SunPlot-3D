@@ -21,7 +21,7 @@ shot() {
   sips -s format jpeg -s formatOptions 82 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null && rm "$OUT/$name.png"
   echo "ok $name"
 }
-prefs() { b js "localStorage.setItem('sunplot-tip-rightclick','1'); localStorage.removeItem('sunplot-autosave:v1'); localStorage.removeItem('solar-sections'); localStorage.setItem('solar-theme','$1'); localStorage.setItem('solar-panels', JSON.stringify({left:${2:-true},right:${3:-true}})); 'ok'" >/dev/null; }
+prefs() { b js "localStorage.setItem('sunplot-tip-rightclick','1'); localStorage.removeItem('sunplot-autosave:v1'); localStorage.removeItem('solar-sections'); localStorage.setItem('solar-dock','0'); localStorage.setItem('solar-theme','$1'); localStorage.setItem('solar-panels', JSON.stringify({left:${2:-true},right:${3:-true}})); 'ok'" >/dev/null; }
 
 # Survey: Jaipur, pick the building nearest the centre, mark stair room + tank, 420 units.
 survey() {
@@ -89,6 +89,11 @@ campus() {
 
 b viewport 1440x900 >/dev/null
 prefs light
+# Warm the browser cache with the PVGIS typical year for the default site (about a minute the first
+# time), so every studio shot shows the hourly simulation rather than the NASA stand-in.
+b goto "http://localhost:5181/?warm=1#day=172&hour=10" >/dev/null
+for i in $(seq 1 40); do sleep 5; p=$(b js "window.__solar.getState().hourly.data?.provider ?? ''" 2>/dev/null | tail -1); [ "$p" = "PVGIS" ] && break; done
+echo "weather: ${p:-none}"
 shot overview-light "#day=172&hour=10" 9
 shot airport "#site=airport&day=80&hour=10.5" 16
 shot carport "#site=carport&day=80&hour=11" 9
@@ -119,6 +124,7 @@ shot layout-options "#site=flat&day=172&hour=10" 6 \
   "window.__solar.getState().setTab('system'); 'x'" \
   "new Promise(r => { const t = setInterval(() => { const b = [...document.querySelectorAll('.alternatives button')].find(b => /Generate/.test(b.textContent)); if (b) { clearInterval(t); b.click(); r('x') } }, 500) })" \
   "new Promise(r => setTimeout(() => { const res = document.querySelector('.results'); const el = document.querySelector('.alternatives'); res.scrollTop = el.offsetTop - 12; r('x') }, 1500))"
+prefs light
 survey survey-checks checks
 survey survey-search search
 survey survey
