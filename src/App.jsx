@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import Stage from './scene/Stage.jsx'
 import StageMenu from './ui/StageMenu.jsx'
 import Inputs from './ui/Inputs.jsx'
@@ -214,8 +214,17 @@ function SunBar() {
   const zone = pos.zone
   // Winter/summer swap in the southern hemisphere.
   const days = lat >= 0 ? DAYS : DAYS.map(([l], i) => [l, DAYS[2 - i][1]])
+  // Publish the bar's height so the Analytics button can sit just above it, wrapped or not.
+  const bar = useRef(null)
+  useEffect(() => {
+    const el = bar.current
+    if (!el) return
+    const ro = new ResizeObserver(() => el.closest('.stage')?.style.setProperty('--sunbar-h', `${el.offsetHeight}px`))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   return (
-    <div className="sunbar">
+    <div className="sunbar" ref={bar}>
       <button className="play" onClick={togglePlay} aria-label={playing ? 'Pause the day' : 'Play the day'}>
         <Icon name={playing ? 'pause' : 'play'} size={18} />
       </button>
@@ -239,8 +248,8 @@ function SunBar() {
       </div>
       <WeatherPick />
       <div className="sun-read">
-        <span><b>{alt > 0 ? alt.toFixed(0) : '—'}°</b> altitude</span>
-        <span><b>{alt > 0 ? pos.azimuth.toFixed(0) : '—'}°</b> azimuth</span>
+        <span title="Sun altitude: degrees above the horizon"><b>{alt > 0 ? alt.toFixed(0) : '—'}°</b> alt</span>
+        <span title="Sun azimuth: compass bearing, 0° north, 90° east"><b>{alt > 0 ? pos.azimuth.toFixed(0) : '—'}°</b> az</span>
       </div>
     </div>
   )

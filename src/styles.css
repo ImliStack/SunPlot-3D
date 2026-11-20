@@ -199,8 +199,8 @@ select, .text {
 .ghost-btn { position: relative; }
 
 .sunbar {
-  position: absolute; left: 16px; right: 16px; bottom: 16px; max-width: 760px; margin: 0 auto;
-  display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+  position: absolute; left: 16px; right: 16px; bottom: 16px; max-width: 860px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
   border-radius: 16px; background: var(--glass); border: 1px solid var(--line);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: var(--shadow);
 }
@@ -208,7 +208,7 @@ select, .text {
   flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
   background: var(--sun); color: #1c1608;
 }
-.sun-sliders { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 4px; } /* wide enough for slider + chips; the weather picker wraps below otherwise */
+.sun-sliders { flex: 1 1 330px; min-width: 0; display: flex; flex-direction: column; gap: 4px; } /* wide enough for slider + chips; the weather picker wraps below otherwise */
 .sun-row { display: grid; grid-template-columns: 64px minmax(80px, 1fr) auto; align-items: center; gap: 10px; }
 .sun-row input[type='range']::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, var(--sun) var(--p, 50%), var(--line-strong) var(--p, 50%));
@@ -219,7 +219,7 @@ select, .text {
 .sun-meta { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
 .sun-days { display: flex; gap: 4px; }
 .mini-chip { padding: 2px 8px; font-size: 11px; }
-.sun-read { display: flex; flex-direction: column; font-size: 11.5px; color: var(--muted); min-width: 92px; }
+.sun-read { display: flex; flex-direction: column; font-size: 11.5px; color: var(--muted); white-space: nowrap; flex: none; }
 .sun-read b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* ───── Results ───── */
@@ -748,10 +748,11 @@ select, .text {
 /* Analytics dock */
 .dock { position: absolute; left: 16px; right: 16px; bottom: 16px; pointer-events: none; z-index: 4; }
 .dock-toggle { pointer-events: auto; position: absolute; right: 0; bottom: 0; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: var(--glass); border: 1px solid var(--line); font-size: 12px; color: var(--ink); backdrop-filter: blur(12px); }
-.dock.is-open .dock-toggle { bottom: auto; top: -34px; }
+.dock:not(.is-open) .dock-toggle { bottom: calc(var(--sunbar-h, 70px) + 8px); } /* just above the sun bar's right end */
+.dock.is-open .dock-toggle { bottom: auto; top: 8px; right: 10px; z-index: 1; } /* inside the dock, beside the tabs */
 .dock-body { pointer-events: auto; padding: 10px 12px 8px; border-radius: 14px; background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow); max-height: 46vh; overflow: auto; }
 .stage:has(.dock.is-open) .sunbar { bottom: calc(16px + min(46vh, 262px) + 12px); }
-.dock-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.dock-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; padding-right: 108px; }
 .dock-tabs button { padding: 4px 10px; border-radius: 8px; font-size: 12px; color: var(--muted); }
 .dock-tabs button.is-on { background: var(--soft); color: var(--ink); }
 .chart-wrap { width: 100%; }
