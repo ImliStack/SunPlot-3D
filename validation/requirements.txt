@@ -1,0 +1,4 @@
+# Reference environment for validation/ (python3 -m venv validation/.venv && validation/.venv/bin/pip install -r validation/requirements.txt)
+pvlib==0.11.2
+pandas<2.3
+requests
