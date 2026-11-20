@@ -60,3 +60,30 @@ export async function fetchBuildings(lat, lon, radius = 180, signal) {
   }
   throw new Error(last?.name === 'AbortError' ? 'map servers are busy (timed out)' : last?.message ?? 'map servers are busy')
 }
+
+/** Roads within `radius` m of a point (Overpass): [{ name, kind, line: [[lon, lat]…] }]. */
+export async function fetchRoads(lat, lon, radius = 60, signal) {
+  const q = `[out:json][timeout:10];way["highway"]["highway"!~"footway|path|steps|cycleway|corridor|elevator|platform"](around:${radius},${lat.toFixed(6)},${lon.toFixed(6)});out tags geom 60;`
+  let last
+  for (const base of MIRRORS) {
+    const ctrl = new AbortController()
+    const stop = () => ctrl.abort()
+    signal?.addEventListener('abort', stop)
+    const timer = setTimeout(stop, 10000)
+    try {
+      const res = await fetch(`${base}?data=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+      if (!res.ok) throw new Error(`Overpass ${res.status}`)
+      const json = await res.json()
+      return json.elements.filter((e) => e.geometry?.length >= 2).map((e) => ({
+        name: e.tags?.name ?? '', kind: e.tags?.highway ?? 'road', line: e.geometry.map((g) => [g.lon, g.lat]),
+      }))
+    } catch (err) {
+      if (signal?.aborted) throw err
+      last = err
+    } finally {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', stop)
+    }
+  }
+  throw last ?? new Error('map servers are busy')
+}

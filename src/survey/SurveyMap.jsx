@@ -196,7 +196,15 @@ export default function SurveyMap({ panels, recommended, module }) {
   // Create the map once.
   useEffect(() => {
     const m = new maplibregl.Map({
-      container: box.current, style: STYLE, center: [77.209, 28.6139], zoom: 4.5, maxZoom: 20.5,
+      container: box.current, style: STYLE, maxZoom: 20.5,
+      // Open where the work is: the surveyed roof, the searched place, else the design's site.
+      ...(() => {
+        const st = useSolar.getState()
+        const v = st.survey
+        if (v.ring) return { center: v.ring[0], zoom: 19 }
+        if (v.center) return { center: v.center, zoom: 19 }
+        return { center: [st.params.lon, st.params.lat], zoom: 13 }
+      })(),
       attributionControl: { compact: true }, dragRotate: true,
     })
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
@@ -210,7 +218,7 @@ export default function SurveyMap({ panels, recommended, module }) {
     m.addControl(g, 'bottom-right')
     g.on('geolocate', (pos) => {
       const ll = [pos.coords.longitude, pos.coords.latitude]
-      patchSurvey({ center: ll, pin: ll, address: 'My location', ring: null, draft: [], mumty: null, tank: null, neighbours: [], locError: '' })
+      patchSurvey({ center: ll, pin: ll, address: 'My location', ring: null, draft: [], mumty: null, tank: null, heater: null, ac: [], frontFrom: null, neighbours: [], locError: '' })
       lookUp(ll)
     })
     g.on('error', (err) => patchSurvey({
@@ -318,8 +326,11 @@ export default function SurveyMap({ panels, recommended, module }) {
           }
         }
         patchSurvey({ draft: [...s.draft, ll] })
-      } else if (s.tool === 'mumty' || s.tool === 'tank') {
+      } else if (s.tool === 'mumty' || s.tool === 'tank' || s.tool === 'heater') {
         patchSurvey({ [s.tool]: ll, tool: 'pick' })
+      } else if (s.tool === 'ac') {
+        // AC units: each click adds one; the tool stays on until switched off.
+        patchSurvey({ ac: [...(s.ac ?? []), ll] })
       }
     })
     // Follow the container when side panels fold or the window resizes.
@@ -369,8 +380,11 @@ export default function SurveyMap({ panels, recommended, module }) {
   useEffect(() => {
     const m = map.current
     if (!m) return
-    for (const [k, label] of [['mumty', 'Stair room'], ['tank', 'Water tank']]) {
-      const at = sv[k]
+    const points = [['mumty', 'Stair room', sv.mumty], ['tank', 'Water tank', sv.tank], ['heater', 'Water heater', sv.heater],
+      ...(sv.ac ?? []).map((a, j) => [`ac${j}`, 'AC', a])]
+    // Drop markers that no longer exist (an AC unit removed).
+    for (const k of Object.keys(marks.current)) if (!points.some(([q]) => q === k)) { marks.current[k].remove(); delete marks.current[k] }
+    for (const [k, label, at] of points) {
       if (!at) {
         marks.current[k]?.remove()
         delete marks.current[k]
@@ -378,12 +392,16 @@ export default function SurveyMap({ panels, recommended, module }) {
       }
       if (!marks.current[k]) {
         const el = document.createElement('div')
-        el.className = `map-mark is-${k}`
+        el.className = `map-mark is-${k.startsWith('ac') ? 'ac' : k}`
         el.textContent = label
         marks.current[k] = new maplibregl.Marker({ element: el, draggable: true })
           .on('dragend', (ev) => {
             const p = ev.target.getLngLat()
-            useSolar.getState().patchSurvey({ [k]: [p.lng, p.lat] })
+            const v = useSolar.getState().survey
+            if (k.startsWith('ac')) {
+              const j = Number(k.slice(2))
+              useSolar.getState().patchSurvey({ ac: v.ac.map((a, n) => (n === j ? [p.lng, p.lat] : a)) })
+            } else useSolar.getState().patchSurvey({ [k]: [p.lng, p.lat] })
           })
       }
       marks.current[k].setLngLat(at).addTo(m)

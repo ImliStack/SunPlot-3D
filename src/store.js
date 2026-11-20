@@ -39,7 +39,7 @@ const EMPTY_SURVEY = {
   locError: '',
   address: '',
   state: '', // Indian state, for subsidy rates and the vendor list
-  tool: 'pick', // pick | draw | mumty | tank
+  tool: 'pick', // pick | draw | mumty | tank | heater | ac
   buildings: [], // OSM buildings around the address
   status: 'idle', // idle | loading | ready | error
   error: '',
@@ -57,6 +57,15 @@ const EMPTY_SURVEY = {
   mumty: null,
   tank: null,
   front: 'S', // street side
+  frontFrom: null, // { road, side } when the street side came from map roads; null = set by hand
+  parapet: 0.9, // m parapet wall height around the terrace
+  heater: null, // [lon, lat] solar water heater
+  ac: [], // [[lon, lat]…] AC outdoor units
+  roofType: 'rcc', // rcc | rcc-repair (leaks / cracks) | sheet (metal sheet over the terrace)
+  inverterAt: 'ground', // ground (near the meter) | terrace
+  meterDist: 15, // m of cable route from the roof edge down to the meter / DB
+  checks: {}, // site-photo checklist: { key: true }
+  notes: '', // surveyor notes
   units: 300, // kWh per month
   bill: 0, // ₹ per month (alternative to units)
   sanctioned: 0, // kW, 0 = unknown

@@ -128,3 +128,21 @@ describe('custom module and structure height', async () => {
     expect(minY(high) - minY(low)).toBeCloseTo(2.35, 1)
   })
 })
+
+describe('survey helpers', async () => {
+  const { streetSide } = await import('../src/survey/geo.js')
+  const { cableRuns } = await import('../src/survey/apply.js')
+  // A 20 × 15 m house near Jaipur; 1e-5° ≈ 1.1 m.
+  const ring = [[75.8, 26.9], [75.8002, 26.9], [75.8002, 26.90013], [75.8, 26.90013], [75.8, 26.9]]
+  it('finds the street side from the nearest road', () => {
+    const south = { name: 'Station Road', kind: 'residential', line: [[75.7995, 26.89990], [75.8007, 26.89990]] }
+    const east = { name: '', kind: 'service', line: [[75.80045, 26.8998], [75.80045, 26.9003]] }
+    expect(streetSide(ring, [south])).toMatchObject({ side: 'S', road: 'Station Road' })
+    expect(streetSide(ring, [east]).side).toBe('E')
+    expect(streetSide(ring, [{ name: 'far', kind: 'primary', line: [[75.81, 26.91], [75.811, 26.91]] }])).toBeNull()
+  })
+  it('cable runs follow where the inverter goes', () => {
+    expect(cableRuns({ ring, levels: 2, meterDist: 10, inverterAt: 'ground' })).toEqual({ dcRun: 24, acRun: 3 })
+    expect(cableRuns({ ring, levels: 2, meterDist: 10, inverterAt: 'terrace' })).toEqual({ dcRun: 8, acRun: 19 })
+  })
+})

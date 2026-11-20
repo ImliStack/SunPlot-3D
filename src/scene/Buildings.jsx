@@ -162,6 +162,21 @@ export function Obstacles({ list }) {
         </group>
       )
     }
+    if (o.kind === 'swh') {
+      // Solar water heater: evacuated-tube collector tilted towards the sun, horizontal tank on top.
+      return (
+        <group key={i} position={[o.x, o.y0, o.z]}>
+          <mesh position={[0, 0.75, 0]} rotation={[-0.6, 0, 0]} castShadow receiveShadow>
+            <boxGeometry args={[o.w, 0.06, o.d * 1.3]} />
+            <meshStandardMaterial color="#20304a" roughness={0.25} metalness={0.4} />
+          </mesh>
+          <mesh position={[0, o.h - 0.25, -o.d / 2 + 0.2]} rotation={[0, 0, Math.PI / 2]} material={m.steel} castShadow><cylinderGeometry args={[0.25, 0.25, o.w, 20]} /></mesh>
+          {[-1, 1].map((sx) => (
+            <mesh key={sx} position={[sx * (o.w / 2 - 0.05), o.h / 2 - 0.2, -o.d / 2 + 0.2]} material={m.darkSteel}><boxGeometry args={[0.05, o.h - 0.4, 0.05]} /></mesh>
+          ))}
+        </group>
+      )
+    }
     if (o.kind === 'tank') {
       // Black polyethylene water tank on a small steel stand, as on most Indian terraces.
       return (

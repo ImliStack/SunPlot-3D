@@ -66,12 +66,12 @@ export function bestModules(shade, n) {
 }
 
 /** One plain-language sentence on where to put the panels. */
-export function placementAdvice(zones, mumty, tank) {
+export function placementAdvice(zones, mumty, tank, heater) {
   if (!zones.length) return ''
   const best = zones[0]
   const worst = zones[zones.length - 1]
   const gap = (worst.shade - best.shade) * 100
-  const extra = [mumty && 'the stair room', tank && 'the water tank'].filter(Boolean).join(' and ')
+  const extra = [mumty && 'the stair room', tank && 'the water tank', heater && 'the water heater'].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1')
   if (zones.length === 1 || gap < 0.5) {
     return `The whole terrace gets similar sun — any part works${extra ? `; keep clear of ${extra}` : ''}.`
   }

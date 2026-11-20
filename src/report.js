@@ -267,6 +267,11 @@ export async function buildProposal(d) {
     y = h2('Roof', y + 2)
     y = para(`Roof area ${num(S.roofM2)} m² (${num(S.roofM2 * 10.764)} sq ft); it can take up to ${num(S.roofKw, 1)} kWp on an elevated structure with ${num(d.params.edge, 2)} m kept clear at the edges.` +
       (S.limit === 'roof' ? ' The roof, not the bill, limits the size.' : S.limit === 'sanctioned' ? ' The sanctioned load limits the size; the DISCOM can raise it.' : ''), y)
+    if (S.checks?.length) {
+      y = h2('Site checks', y + 2)
+      for (const c of S.checks) y = para(`- ${c}`, y, 8.6)
+      if (S.notes) y = para(`Surveyor notes: ${S.notes}`, y, 8.6, MUTED)
+    }
     y = h2('Cost after subsidy', y + 2)
     y = tiles([
       [money(S.cost), 'installed'],

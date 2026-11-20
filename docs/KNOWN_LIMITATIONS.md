@@ -46,7 +46,8 @@ SunPlot produces concept and pre-feasibility designs. It is not a bankable energ
 ## Product
 
 - Projects, autosave and history live in this browser's localStorage. There are no accounts, sync or backup.
-- The survey map opens at the default zoom, not at the design's site.
+- Street side and building outlines come from public Overpass servers, which are sometimes busy. If the lookup fails, set the street side by hand.
+- Survey obstacles use typical sizes: solar water heater 2.0 × 1.3 × 1.6 m, AC outdoor unit 0.9 × 0.4 × 0.75 m.
 - The 3D view needs WebGL 2. On low-end phones, ambient occlusion is turned off.
 - Demo projects use illustrative, dated assumptions. They are not real customers.
 
