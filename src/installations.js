@@ -103,5 +103,6 @@ export async function geocode(name, signal) {
   return (json.results ?? []).map((r) => ({
     name: r.name, lat: r.latitude, lon: r.longitude,
     where: [r.admin1, r.country].filter(Boolean).join(', '),
+    tz: r.timezone ?? '',
   }))
 }

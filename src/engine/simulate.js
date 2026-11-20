@@ -34,6 +34,36 @@ import { iamPhysical, sapmTemperature, pvwattsDc, pvwattsInverter, combinedLoss,
  * @param {number[]} [o.snow]        monthly snow fraction (0–1)
  * @param {string} [o.transposition] 'perez' | 'haydavies' | 'isotropic'
  */
+// Sun positions depend only on the weather file's timestamps and the site, not on the design, so
+// they're computed once per (weather, site) and reused while the layout changes.
+const sunCache = new WeakMap()
+function sunSeries(w, lat, lon, elevation, pressure) {
+  let byWeather = sunCache.get(w)
+  if (!byWeather) sunCache.set(w, (byWeather = new Map()))
+  const k = `${lat}|${lon}|${elevation}`
+  if (byWeather.has(k)) return byWeather.get(k)
+  const n = w.time.length
+  const zen = new Float64Array(n)
+  const az = new Float64Array(n)
+  const month = new Uint8Array(n)
+  const extra = new Float64Array(n)
+  const am = new Float64Array(n)
+  for (let i = 0; i < n; i++) {
+    const t = w.time[i] + w.offsetHours * 3600000
+    const d = new Date(t)
+    month[i] = d.getUTCMonth()
+    const doy = Math.floor((t - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1
+    const sun = spa(t, lat, lon, { elevation, pressure, temperature: 12 })
+    zen[i] = sun.apparentZenith
+    az[i] = sun.azimuth
+    extra[i] = extraRadiation(doy)
+    am[i] = airmassRelative(sun.apparentZenith)
+  }
+  const out = { zen, az, month, extra, am }
+  byWeather.set(k, out)
+  return out
+}
+
 export function simulate(o) {
   const w = o.weather
   const n = w.time.length
@@ -58,18 +88,16 @@ export function simulate(o) {
   const w8 = { poaRef: 0, shade: 0, iam: 0, soil: 0, snow: 0, temp: 0, system: 0, inverter: 0, clip: 0 }
   let poaGlobalYear = 0 // kWh/m² on the main plane (irradiation)
 
+  const S = sunSeries(w, o.lat, o.lon, elevation, pressure)
   for (let i = 0; i < n; i++) {
-    const t = w.time[i] + w.offsetHours * 3600000
-    const d = new Date(t)
-    const month = d.getUTCMonth()
-    const doy = Math.floor((t - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1
-    const sun = spa(t, o.lat, o.lon, { elevation, pressure, temperature: 12 })
-    const zen = sun.apparentZenith
+    const month = S.month[i]
+    const zen = S.zen[i]
+    const sun = { azimuth: S.az[i] }
     sunElev[i] = 90 - zen
     const ghi = w.ghi[i]
     if (!(ghi > 0) && !(w.dni[i] > 0)) continue
-    const dniExtra = extraRadiation(doy)
-    const am = airmassRelative(zen)
+    const dniExtra = S.extra[i]
+    const am = S.am[i]
     let dcSum = 0
     o.arrays.forEach((a, k) => {
       if (!(a.pdc0 > 0)) return

@@ -13,14 +13,15 @@ import PanelToggles from './ui/PanelToggles.jsx'
 // The map-based survey (MapLibre) loads only when someone opens it.
 const Survey = lazy(() => import('./survey/Survey.jsx'))
 import { useSolar } from './store.js'
-import { useCandidates, useLayout, useYield } from './hooks.js'
+import { useCandidates, useLayout, useYield, useHourlyWeatherFetch } from './hooks.js'
 import { TOOLS, indexArrays, targetsFor, describe } from './installTools.js'
 import { useWeather } from './scene/Weather.jsx'
 import { panelOf } from './presets.js'
 import { useHashLink } from './links.js'
 import { useClimateFetch } from './climate.js'
 import { useShadingStudy } from './shadingClient.js'
-import { sunPosition, dayLength, dateLabel, hourLabel, dayOfYear } from './solar.js'
+import { dateLabel, hourLabel, dayOfYear } from './solar.js'
+import { sunAt, sunClock } from './engine/clock.js'
 
 const RAD = Math.PI / 180
 
@@ -197,12 +198,15 @@ const DAYS = [
 ]
 
 function SunBar() {
-  const { lat, day, hour } = useSolar((s) => s.params)
+  const { lat, lon, tz, day, hour } = useSolar((s) => s.params)
   const playing = useSolar((s) => s.playing)
   const { set, togglePlay } = useSolar.getState()
-  const span = dayLength(lat, day)
-  const pos = sunPosition(lat, day, hour)
-  const alt = pos.alt / RAD
+  const site = { lat, lon, tz }
+  const clock = sunClock(site, day)
+  const span = clock.polar === 'night' ? null : clock.polar === 'day' ? [0, 24] : [clock.rise, clock.set]
+  const pos = sunAt(site, day, hour)
+  const alt = pos.apparentElevation
+  const zone = pos.zone
   // Winter/summer swap in the southern hemisphere.
   const days = lat >= 0 ? DAYS : DAYS.map(([l], i) => [l, DAYS[2 - i][1]])
   return (
@@ -212,10 +216,10 @@ function SunBar() {
       </button>
       <div className="sun-sliders">
         <label className="sun-row">
-          <span className="sun-key">{hourLabel(hour)}</span>
-          <input type="range" min={0} max={24} step={0.05} value={hour} aria-label="Solar time"
+          <span className="sun-key" title={`Local clock time, ${zone.label}${zone.approximate ? ' (approximate zone)' : ''}. Sun from the NREL SPA.`}>{hourLabel(hour)}</span>
+          <input type="range" min={0} max={24} step={0.05} value={hour} aria-label={`Local clock time (${zone.label})`}
             style={{ '--p': `${(hour / 24) * 100}%` }} onChange={(e) => set('hour', Number(e.target.value))} />
-          <span className="sun-meta">{span ? `${hourLabel(span[0])}–${hourLabel(span[1])}` : 'polar night'}</span>
+          <span className="sun-meta" title={clock.noon != null ? `Solar noon ${hourLabel(clock.noon)} · equation of time ${pos.eot.toFixed(1)} min` : ''}>{span ? (clock.polar === 'day' ? 'midnight sun' : `${hourLabel(span[0])}–${hourLabel(span[1])}`) : 'polar night'}</span>
         </label>
         <label className="sun-row">
           <span className="sun-key">{dateLabel(day)}</span>
@@ -231,7 +235,7 @@ function SunBar() {
       <WeatherPick />
       <div className="sun-read">
         <span><b>{alt > 0 ? alt.toFixed(0) : '—'}°</b> altitude</span>
-        <span><b>{alt > 0 ? (pos.az / RAD).toFixed(0) : '—'}°</b> azimuth</span>
+        <span><b>{alt > 0 ? pos.azimuth.toFixed(0) : '—'}°</b> azimuth</span>
       </div>
     </div>
   )
@@ -289,6 +293,7 @@ export default function App() {
   const panels = useSolar((s) => s.panels)
   useHashLink()
   useClimateFetch()
+  useHourlyWeatherFetch()
   useShadingStudy()
   useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
   const mode = useSolar((s) => s.mode)

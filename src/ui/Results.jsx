@@ -160,7 +160,9 @@ function SystemTab({ p, layout, y }) {
   const co2 = (y.annual * p.co2) / 1000
   const [mwh, unitE] = energy(y.annual)
   const [kwp, unitP] = power(layout.kwp)
+  const hourly = y.source === 'hourly'
   const measured = y.source === 'measured'
+  const hourlyState = useSolar((s) => s.hourly)
   return (
     <>
       <div className="hero">
@@ -174,14 +176,18 @@ function SystemTab({ p, layout, y }) {
       )}
 
       <section className="card">
-        <h3>Energy by month <span className={`badge ${measured ? 'is-ok' : ''}`}>{measured ? `Measured climate ${y.years[0].year}–${y.years[y.years.length - 1].year}` : 'Climate-class model'}</span></h3>
+        <h3>Energy by month <span className={`badge ${hourly ? 'is-ok' : 'is-warn'}`} title={hourly ? `${y.weather.provider}: ${y.weather.dataset} (${y.weather.kind}). ${y.engine}.` : 'Shown while hourly weather loads; not used in reports.'}>
+          {hourly ? `Hourly · ${y.weather.dataset}${hourlyState.upgrading ? ' · typical year loading…' : ''}` : hourlyState.status === 'error' ? 'Estimate · hourly weather unavailable' : 'Estimate · loading hourly weather…'}
+        </span></h3>
+        {hourly && y.weather.quality && !y.weather.quality.ok && <p className="card-note warn">Weather data check: {y.weather.quality.issues.join('; ')}.</p>}
+        {hourlyState.status === 'error' && <p className="card-note warn">Hourly weather could not be loaded ({hourlyState.error}). Figures below are a monthly estimate, not the hourly simulation.</p>}
         <Bars values={y.months} unit="kWh" />
         <div className="kpis">
           <Stat value={fmt(y.specific)} unit="kWh/kWp" label="specific yield" tip="Annual energy per kWp installed" />
-          <Stat value={fmt(cuf * 100, 1)} unit="%" label="CUF" tip="Capacity utilisation factor = energy ÷ (kWp × 8760 h)" />
+          <Stat value={fmt((y.capacityFactor ?? cuf) * 100, 1)} unit="%" label="capacity factor (DC)" tip="Annual AC energy ÷ (DC kWp × hours in the weather year)" />
           <Stat value={fmt((y.pr ?? 0) * 100, 1)} unit="%" label="performance ratio" />
-          {measured
-            ? <Stat value={energy(y.p90).join(' ')} label="P90 (1-yr)" tip="Exceeded 9 years in 10, from the spread of the last ten years" />
+          {y.p90 != null
+            ? <Stat value={energy(y.p90).join(' ')} label="P90 (1-yr)" tip="P50 − 1.2816 σ, with σ the year-to-year spread of ten years of NASA POWER irradiation (weather variability only)" />
             : <Stat value={fmt(y.annual / 365, 1)} unit="kWh" label="per day, avg" />}
           <ShadeStat y={y} />
         </div>
@@ -189,7 +195,7 @@ function SystemTab({ p, layout, y }) {
 
       {usesTiles(p) && <TileCompare p={p} layout={layout} y={y} />}
 
-      {measured && y.losses && <Waterfall y={y} />}
+      {y.losses && <Waterfall y={y} />}
 
       <section className="card">
         <h3>Arrays</h3>
@@ -212,7 +218,9 @@ function SystemTab({ p, layout, y }) {
       </section>
 
       <section className="card grid2">
-        <Stat value={power(layout.kwp / DC_AC)[0]} unit={power(layout.kwp / DC_AC)[1].replace('p', '')} label={`AC inverter (DC:AC ${DC_AC})`} />
+        {y.acRating
+          ? <Stat value={power(y.acRating / 1000)[0]} unit={power(y.acRating / 1000)[1].replace('p', '')} label={`AC inverter (DC:AC ${fmt(layout.kwp / (y.acRating / 1000), 2)})`} />
+          : <Stat value={power(layout.kwp / DC_AC)[0]} unit={power(layout.kwp / DC_AC)[1].replace('p', '')} label={`AC inverter (DC:AC ${DC_AC}, assumed)`} />}
         <Stat value={energy(life).join(' ')} label="25-year energy (0.5 %/yr loss)" />
         <Stat value={fmt(layout.moduleArea)} unit="m²" label="module area" />
         <Stat value={fmt(layout.coverage * 100)} unit="%" label={['ground'].includes(p.site) ? 'ground cover ratio' : 'of the surface'} />
@@ -232,9 +240,11 @@ function SystemTab({ p, layout, y }) {
       {layout.facts.length > 0 && <ul className="facts">{layout.facts.map((f) => <li key={f}>{f}</li>)}</ul>}
 
       <p className="fine">
-        Concept estimate, not an engineering design. {measured
-          ? 'Monthly NASA POWER irradiance split into beam and diffuse (Collares-Pereira & Rabl), transposed per plane; soiling from rain events and your cleaning interval, snow cover from snowfall, tilt and temperature; 14 % system losses.'
-          : `Clear-sky model × ${CLIMATES[p.climate].label.toLowerCase()} factor ${CLIMATES[p.climate].k} × ${y.pr} PR.`} Shading is ray-cast per module centre (beam only). Confirm with PVsyst / PVWatts and a site survey.
+        Concept estimate, not an engineering design. {hourly
+          ? `Hour-by-hour simulation on ${y.weather.dataset}: NREL SPA sun position, Perez transposition, physical IAM, SAPM cell temperature (${y.mount.replace(/_/g, ' ')}), PVWatts DC and inverter with clipping at ${fmt(y.acRating / 1000, 1)} kW AC, soiling from rain events, snow from snowfall; validated against pvlib (docs/VALIDATION_REPORT.md).`
+          : measured
+            ? 'Monthly estimate from NASA POWER means (shown until hourly weather loads).'
+            : `Rough clear-sky estimate × ${CLIMATES[p.climate].label.toLowerCase()} factor (shown until weather loads).`} Shading is ray-cast per module centre for beam light. Future generation can't be predicted exactly; P90 reflects weather variability only.
       </p>
     </>
   )
@@ -316,7 +326,7 @@ function ClimateTab({ p, y }) {
       <section className="card">
         <h3>Last ten years</h3>
         <YearBars items={s.yearly} valueKey="ghi" unit="kWh/m²" />
-        {y.source === 'measured' && (
+        {y.years?.length > 0 && (
           <>
             <h3 className="sub">This design’s energy, year by year</h3>
             <YearBars items={y.years} valueKey="kwh" unit="kWh" line={y.p90} lineLabel="P90" />

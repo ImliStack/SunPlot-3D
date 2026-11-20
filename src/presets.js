@@ -50,17 +50,17 @@ export const CLIMATES = {
 
 // Quick locations. Prices are rough installed costs and retail tariffs, there to be edited.
 export const PLACES = [
-  { key: 'delhi', label: 'New Delhi', lat: 28.6, lon: 77.2, climate: 'sunny', cur: '₹', cost: 50, tariff: 8, co2: 0.71 },
-  { key: 'jaipur', label: 'Jaipur', lat: 26.9, lon: 75.8, climate: 'arid', cur: '₹', cost: 48, tariff: 7.5, co2: 0.71 },
-  { key: 'mumbai', label: 'Mumbai', lat: 19.1, lon: 72.88, climate: 'monsoon', cur: '₹', cost: 52, tariff: 10, co2: 0.71 },
-  { key: 'bengaluru', label: 'Bengaluru', lat: 13.0, lon: 77.59, climate: 'monsoon', cur: '₹', cost: 50, tariff: 8.5, co2: 0.71 },
-  { key: 'dubai', label: 'Dubai', lat: 25.2, lon: 55.27, climate: 'arid', cur: 'AED ', cost: 3.2, tariff: 0.38, co2: 0.42 },
-  { key: 'phoenix', label: 'Phoenix', lat: 33.4, lon: -112.07, climate: 'arid', cur: '$', cost: 2.8, tariff: 0.15, co2: 0.37 },
-  { key: 'berlin', label: 'Berlin', lat: 52.5, lon: 13.4, climate: 'temperate', cur: '€', cost: 1.5, tariff: 0.36, co2: 0.38 },
-  { key: 'london', label: 'London', lat: 51.5, lon: -0.13, climate: 'cloudy', cur: '£', cost: 1.7, tariff: 0.25, co2: 0.2 },
-  { key: 'kochi', label: 'Kochi', lat: 10.15, lon: 76.4, climate: 'monsoon', cur: '₹', cost: 50, tariff: 8, co2: 0.71 },
-  { key: 'chennai', label: 'Chennai', lat: 13.08, lon: 80.27, climate: 'sunny', cur: '₹', cost: 48, tariff: 8, co2: 0.71 },
-  { key: 'sydney', label: 'Sydney', lat: -33.9, lon: 151.21, climate: 'sunny', cur: 'A$', cost: 1.1, tariff: 0.32, co2: 0.66 },
+  { key: 'delhi', label: 'New Delhi', lat: 28.6, lon: 77.2, tz: 'Asia/Kolkata', climate: 'sunny', cur: '₹', cost: 50, tariff: 8, co2: 0.71 },
+  { key: 'jaipur', label: 'Jaipur', lat: 26.9, lon: 75.8, tz: 'Asia/Kolkata', climate: 'arid', cur: '₹', cost: 48, tariff: 7.5, co2: 0.71 },
+  { key: 'mumbai', label: 'Mumbai', lat: 19.1, lon: 72.88, tz: 'Asia/Kolkata', climate: 'monsoon', cur: '₹', cost: 52, tariff: 10, co2: 0.71 },
+  { key: 'bengaluru', label: 'Bengaluru', lat: 13.0, lon: 77.59, tz: 'Asia/Kolkata', climate: 'monsoon', cur: '₹', cost: 50, tariff: 8.5, co2: 0.71 },
+  { key: 'dubai', label: 'Dubai', lat: 25.2, lon: 55.27, tz: 'Asia/Dubai', climate: 'arid', cur: 'AED ', cost: 3.2, tariff: 0.38, co2: 0.42 },
+  { key: 'phoenix', label: 'Phoenix', lat: 33.4, lon: -112.07, tz: 'America/Phoenix', climate: 'arid', cur: '$', cost: 2.8, tariff: 0.15, co2: 0.37 },
+  { key: 'berlin', label: 'Berlin', lat: 52.5, lon: 13.4, tz: 'Europe/Berlin', climate: 'temperate', cur: '€', cost: 1.5, tariff: 0.36, co2: 0.38 },
+  { key: 'london', label: 'London', lat: 51.5, lon: -0.13, tz: 'Europe/London', climate: 'cloudy', cur: '£', cost: 1.7, tariff: 0.25, co2: 0.2 },
+  { key: 'kochi', label: 'Kochi', lat: 10.15, lon: 76.4, tz: 'Asia/Kolkata', climate: 'monsoon', cur: '₹', cost: 50, tariff: 8, co2: 0.71 },
+  { key: 'chennai', label: 'Chennai', lat: 13.08, lon: 80.27, tz: 'Asia/Kolkata', climate: 'sunny', cur: '₹', cost: 48, tariff: 8, co2: 0.71 },
+  { key: 'sydney', label: 'Sydney', lat: -33.9, lon: 151.21, tz: 'Australia/Sydney', climate: 'sunny', cur: 'A$', cost: 1.1, tariff: 0.32, co2: 0.66 },
 ]
 
 /** Rule-of-thumb best fixed tilt for annual yield (≈ 0.76·|lat| + 3.1°). */
@@ -107,14 +107,15 @@ export const DEFAULTS = {
   placeName: 'New Delhi',
   lat: 28.6,
   lon: 77.2,
+  tz: 'Asia/Kolkata', // IANA zone for clock time (DST-aware); '' = derive from coordinates
   climate: 'sunny',
   cur: '₹',
   cost: 50, // per Wp installed
   tariff: 8, // per kWh
   co2: 0.71, // kg CO₂ per kWh of grid power avoided
   // View
-  day: 172, // day of year for the sun
-  hour: 10.5, // solar time
+  day: 172, // day of year for the sun (in engine/clock.js REF_YEAR)
+  hour: 10.5, // local clock time at the site
   surroundings: true,
   weather: 'auto', // auto (this month from data) | clear | rain | snow
   closeTrees: false, // mature trees right next to the site (shade study)

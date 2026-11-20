@@ -175,36 +175,27 @@ async function fetchJson(url, signal, timeout = 45000) {
 }
 
 /**
- * Hourly weather for a location: cached → PVGIS TMY → NASA POWER last full year.
+ * Hourly weather from one provider ('pvgis' | 'nasa'), cached per provider and location.
+ * PVGIS computes a TMY on demand (≈ 1 min the first time; the Worker then caches it at the edge).
  * @returns {Promise<Weather>}
  */
-export async function loadWeather(lat, lon, { signal, preferNasa = false } = {}) {
-  const k = key(lat, lon)
+export async function loadWeather(lat, lon, { signal, provider = 'pvgis' } = {}) {
+  const k = `${key(lat, lon)}:${provider}`
   const cached = load(k)
-  if (cached && !(preferNasa && cached.provider !== 'NASA POWER')) return { ...cached, cached: true }
-  const errors = []
-  const tryPvgis = async () => {
-    const json = await fetchJson(`/api/pvgis/tmy?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&outputformat=json`, signal)
-    return parsePvgisTmy(json)
-  }
-  const tryNasa = async () => {
+  if (cached) return { ...cached, cached: true }
+  let w
+  if (provider === 'pvgis') {
+    const json = await fetchJson(`/api/pvgis/tmy?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}&outputformat=json`, signal, 150000)
+    w = parsePvgisTmy(json)
+  } else {
     const year = new Date().getUTCFullYear() - 1
     const url = `https://power.larc.nasa.gov/api/temporal/hourly/point?parameters=ALLSKY_SFC_SW_DWN,ALLSKY_SFC_SW_DNI,ALLSKY_SFC_SW_DIFF,T2M,WS10M,ALLSKY_SRF_ALB&community=RE&longitude=${lon.toFixed(3)}&latitude=${lat.toFixed(3)}&start=${year}0101&end=${year}1231&format=JSON&time-standard=UTC`
-    return parseNasaHourly(await fetchJson(url, signal, 90000), year)
+    w = parseNasaHourly(await fetchJson(url, signal, 120000), year)
   }
-  for (const attempt of preferNasa ? [tryNasa, tryPvgis] : [tryPvgis, tryNasa]) {
-    try {
-      const w = await attempt()
-      w.quality = qualityChecks(w, lat, lon)
-      w.lat = lat
-      w.lon = lon
-      w.fetched = new Date().toISOString()
-      save(k, w)
-      return w
-    } catch (err) {
-      if (signal?.aborted) throw err
-      errors.push(err.message)
-    }
-  }
-  throw new Error(`No hourly weather available (${errors.join('; ')})`)
+  w.quality = qualityChecks(w, lat, lon)
+  w.lat = lat
+  w.lon = lon
+  w.fetched = new Date().toISOString()
+  save(k, w)
+  return w
 }

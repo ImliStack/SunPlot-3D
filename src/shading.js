@@ -6,7 +6,9 @@
 // module is judged by its centre point — a fair proxy for strings with bypass diodes, slightly
 // optimistic for long rows shaded along their bottom edge.
 
-import { sunPosition, clearSky } from './solar.js'
+import { clearSky } from './solar.js'
+import { spa } from './engine/spa.js'
+import { REF_YEAR } from './engine/clock.js'
 import { treeSpheres } from './context.js'
 
 const RAD = Math.PI / 180
@@ -197,7 +199,8 @@ function blocked(scene, grid, stamp, rayId, self, P, d) {
  * Monthly beam-shading fraction per array (0 = never shaded, 1 = beam fully blocked) and the
  * annual fraction per module, weighted by how much beam each sun position delivers to the module.
  */
-export function computeShading(scene, lat, onProgress) {
+export function computeShading(scene, site, onProgress) {
+  const { lat, lon } = typeof site === 'number' ? { lat: site, lon: 0 } : site
   const grid = buildGrid(scene)
   const stamp = new Map()
   let rayId = 0
@@ -206,8 +209,12 @@ export function computeShading(scene, lat, onProgress) {
   // Sun samples in the site frame, with their beam strength.
   const suns = MID.map((day) => {
     const list = []
-    for (let h = 4; h <= 20; h += STEP) {
-      const { alt, az } = sunPosition(lat, day, h)
+    // Half-hour samples across 24 h centred on local solar noon (UTC ≈ 12 − lon/15), sun from SPA.
+    const noon = Date.UTC(REF_YEAR, 0, day, 12) - (lon / 15) * 3600000
+    for (let k = -24; k < 24; k++) {
+      const s = spa(noon + (k + 0.5) * STEP * 3600000, lat, lon)
+      const alt = s.apparentElevation * RAD
+      const az = s.azimuth * RAD
       if (alt < 2 * RAD) continue
       const w = [Math.sin(az) * Math.cos(alt), Math.sin(alt), -Math.cos(az) * Math.cos(alt)]
       // World → site frame: undo the site's rotation about y.

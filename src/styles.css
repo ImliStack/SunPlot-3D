@@ -724,3 +724,5 @@ select, .text {
 .gh-star:hover { border-color: #d9902a; }
 .by-imli b { font-weight: 600; color: var(--ink); }
 .by-imli:hover { color: var(--ink); }
+
+.card-note.warn { color: #b45309; }

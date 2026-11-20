@@ -26,8 +26,8 @@ async function pvgis(request, url, ctx) {
   const key = new Request(upstream)
   let res = await cache.match(key)
   if (!res) {
-    const r = await fetch(upstream, { cf: { cacheTtl: 30 * DAY } })
-    if (!r.ok) return bad(`PVGIS ${r.status}: ${(await r.text()).slice(0, 300)}`, 502)
+    const r = await fetch(upstream, { headers: { 'user-agent': 'SunPlot-3D (https://github.com/ImliStack/SunPlot-3D)', accept: 'application/json' }, cf: { cacheTtl: 30 * DAY } })
+    if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) return bad(`PVGIS ${r.status}: ${(await r.text()).slice(0, 300)}`, 502)
     res = new Response(r.body, { headers: { 'content-type': 'application/json', 'cache-control': `public, max-age=${30 * DAY}` } })
     ctx.waitUntil(cache.put(key, res.clone()))
   }

@@ -90,6 +90,7 @@ export const useSolar = create((set, get) => ({
   heading: 0, // compass bearing the camera looks towards, for the HUD compass
   // Measured climate (NASA POWER) for the current location: { status, key, data, error }
   climate: { status: 'idle' },
+  hourly: { status: 'idle' }, // hourly weather for the simulation: { status, key, data, error }
   // Ray-cast shading for the current design: { status, key, perArray[array][month], perModule, progress }
   shading: { status: 'idle' },
   // Click-to-install: installed module keys, their drop-in start times, the active tool and
@@ -131,6 +132,7 @@ export const useSolar = create((set, get) => ({
   toggleHq: () => set((s) => ({ hq: !s.hq })),
   setHeading: (heading) => set({ heading }),
   setClimate: (climate) => set({ climate }),
+  setHourly: (hourly) => set({ hourly }),
   setShading: (shading) => set({ shading }),
   setInstallMode: (mode) => set({ install: { ...EMPTY_INSTALL, tool: get().install.tool, mode } }),
   setTool: (tool) => set((s) => ({ install: { ...s.install, tool } })),
@@ -202,8 +204,8 @@ export const useSolar = create((set, get) => ({
     try { localStorage.setItem('solar-panels', JSON.stringify(panels)) } catch {}
     return { panels }
   }),
-  goTo: ({ lat, lon, name, climate }) => set((s) => ({
-    params: { ...s.params, lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, place: '', placeName: name,
+  goTo: ({ lat, lon, name, climate, tz }) => set((s) => ({
+    params: { ...s.params, lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, place: '', placeName: name, tz: tz ?? '',
       groundTilt: bestTilt(lat), azimuth: equatorAzimuth(lat), ...(climate ? { climate } : {}) },
   })),
   cameraCommand: (type) => set((s) => ({ camera: { type, n: s.camera.n + 1 } })),
@@ -211,7 +213,7 @@ export const useSolar = create((set, get) => ({
     const { playing, params } = get()
     if (!playing) {
       // Start from sunrise when the day is already over.
-      const span = dayLength(params.lat, params.day)
+      const span = dayLength(params, params.day)
       if (span && params.hour >= span[1] - 0.1) set((s) => ({ params: { ...s.params, hour: span[0] } }))
     }
     set({ playing: !playing })

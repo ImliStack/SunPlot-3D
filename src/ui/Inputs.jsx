@@ -112,13 +112,13 @@ function PlaceSearch() {
     return () => clearTimeout(t)
   }, [q])
   const pick = (h) => {
-    goTo({ lat: h.lat, lon: h.lon, name: h.name })
+    goTo({ lat: h.lat, lon: h.lon, name: h.name, tz: h.tz })
     setQ('')
     setHits([])
   }
   const locate = () => {
     navigator.geolocation?.getCurrentPosition(
-      (pos) => goTo({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'My location' }),
+      (pos) => goTo({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'My location', tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       () => setState('error'),
     )
   }

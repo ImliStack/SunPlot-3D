@@ -31,6 +31,7 @@ export function surveyToParams(sv) {
     lon: Math.round(origin[0] * 1000) / 1000,
     placeName: sv.poi?.name || sv.address || 'Surveyed site',
     place: '',
+    tz: '', // derived from coordinates (India → Asia/Kolkata)
     azimuth: equatorAzimuth(lat),
     ...(sv.levels ? { floors: Math.max(1, Math.round(sv.levels)) } : {}),
     terrace: {
