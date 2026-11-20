@@ -85,6 +85,7 @@ export const useSolar = create((set, get) => ({
   camera: { type: 'home', n: 0 },
   // Overlays: array tags, setback / keep-out outlines, overall dimensions.
   layers: { labels: true, zones: true, dims: false, shade: false },
+  ctxHit: null, // module under the last right-click, read by the stage menu
   // High quality: ambient occlusion + antialiasing passes. Off by default on phones.
   hq: typeof matchMedia === 'undefined' || !matchMedia('(pointer: coarse)').matches,
   heading: 0, // compass bearing the camera looks towards, for the HUD compass

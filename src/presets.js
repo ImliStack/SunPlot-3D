@@ -33,7 +33,25 @@ const TILE_SITES = ['gable', 'hip', 'lshape', 'shed']
 /** Solar tiles are on for this design (pitched houses only). */
 export const usesTiles = (p) => !!p.tiles && TILE_SITES.includes(p.site)
 /** The module actually laid: the chosen one, or the solar tile. */
-export const panelOf = (p) => (usesTiles(p) ? TILE : PANELS[p.panel])
+// A module typed in from its datasheet. Vmp/Imp, when not given, use typical ratios for modern
+// crystalline modules (Vmp ≈ 0.835 Voc, Imp ≈ 0.945 Isc); weight is estimated at 11.6 kg/m².
+PANELS.custom = { label: 'Custom module (enter datasheet values)', note: 'Your own size and ratings', custom: true }
+export function customModule(p) {
+  const w = Math.min(1.5, Math.max(0.5, p.customW || 1.134))
+  const h = Math.min(2.6, Math.max(0.8, p.customL || 2.278))
+  const watt = Math.max(50, p.customWatt || 550)
+  const voc = p.customVoc || 49.9
+  const isc = p.customIsc || 13.95
+  return {
+    label: `Custom ${watt} W`, note: `${Math.round(h * 1000)} × ${Math.round(w * 1000)} mm · ${((watt / (w * h)) / 10).toFixed(1)} % · Vmp/Imp from typical ratios`,
+    w, h, watt, kg: Math.round(w * h * 11.6 * 10) / 10, kgEstimated: true,
+    voc, vmp: Math.round(voc * 0.835 * 10) / 10, isc, imp: Math.round(isc * 0.945 * 100) / 100,
+    bVoc: -0.27, gPmax: p.customGamma ?? -0.35, custom: true,
+  }
+}
+/** The chosen module (ignoring solar tiles). */
+export const moduleOf = (p) => (p.panel === 'custom' ? customModule(p) : PANELS[p.panel] ?? PANELS.res430)
+export const panelOf = (p) => (usesTiles(p) ? TILE : moduleOf(p))
 /** Tiles always run long side along the eave. */
 export const portraitOf = (p) => (usesTiles(p) ? false : p.portrait)
 
@@ -108,6 +126,13 @@ export const DEFAULTS = {
   // Panels
   panel: 'res430',
   portrait: true,
+  customW: 1.134, // m, custom module width
+  customL: 2.278, // m, custom module length
+  customWatt: 550, // W STC
+  customVoc: 49.9, // V
+  customIsc: 13.95, // A
+  customGamma: -0.35, // %/°C power temperature coefficient
+  rackHeight: 0, // m, low edge of racks above the roof; 0 = default (elevated terrace 2.2, else 0.15)
   stack: 2, // panels per table, up the slope (racked arrays)
   rackTilt: 15, // ° tilt on flat roof racks
   groundTilt: bestTilt(28.6),
@@ -204,6 +229,7 @@ export const SHOWS = {
   roofing: HOUSES,
   groundTilt: ['ground'],
   clearance: ['ground'],
+  rackHeight: ['flat', 'airport', 'terrace'],
   stack: ['flat', 'ground', 'airport', 'terrace'],
   chimney: HOUSES,
   chimneyX: HOUSES,

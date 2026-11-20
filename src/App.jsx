@@ -1,5 +1,6 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import Stage from './scene/Stage.jsx'
+import StageMenu from './ui/StageMenu.jsx'
 import Inputs from './ui/Inputs.jsx'
 import Results from './ui/Results.jsx'
 import Icon from './ui/Icon.jsx'
@@ -318,6 +319,7 @@ export default function App() {
             <Tools />
             {!client && <Workflow />}
             <AutosaveRestore />
+            {!client && <StageMenu />}
             <PanelToggles />
             <HudCompass />
             <Legend />

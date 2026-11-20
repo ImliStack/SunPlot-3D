@@ -3,7 +3,7 @@ import { useSolar } from '../store.js'
 import { useLayout, useYield, shadingKey } from '../hooks.js'
 import { geocode } from '../installations.js'
 import { autocomplete } from './places.js'
-import { PANELS } from '../presets.js'
+import { PANELS, moduleOf } from '../presets.js'
 import { SITE_SIZES } from '../store.js'
 import { fetchBuildings } from './osm.js'
 import { surveyToParams } from './apply.js'
@@ -309,7 +309,7 @@ function Results({ rec }) {
     useSolar.getState().patch({ useKwh: sv.units || 0, subsidy: rec.subsidy || 0 })
     openInStudio([...rec.keys])
   }
-  const m = PANELS[params.panel]
+  const m = moduleOf(params)
   return (
     <aside className="results survey-results" aria-label="Survey results">
       {rec.poi && (
@@ -429,7 +429,7 @@ export default function Survey() {
   const rec = useMemo(() => {
     if (!sv.ring || params.site !== 'terrace') return null
     const shade = shading.status === 'ready' && shading.key === shadingKey(params, install) ? shading.perModule : null
-    const watt = PANELS[params.panel].watt
+    const watt = moduleOf(params).watt
     const units = sv.units || 0
     const roofKw = layout.kwp
     const size = sizeSystem({ unitsMonth: units, specific: y.specific, roofKw, sanctionedKw: sv.sanctioned, watt })

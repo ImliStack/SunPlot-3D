@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSolar } from '../store.js'
 import { useLayout, useYield, useEngineering } from '../hooks.js'
-import { CLIMATES, PANELS, panelOf, usesTiles } from '../presets.js'
+import { CLIMATES, PANELS, panelOf, usesTiles, moduleOf } from '../presets.js'
 import { computeLayout } from '../layout.js'
 import { MONTHS } from '../solar.js'
 import { LANDMARKS, fetchNearby, distanceKm } from '../installations.js'
@@ -133,7 +133,7 @@ function TileCompare({ p, layout, y }) {
     <section className="card">
       <h3>Solar tiles vs modules on rails</h3>
       <div className="grid2">
-        <Stat value={`${fmt(layout.kwp, 2)} / ${fmt(rails.kwp, 2)}`} unit="kWp" label={`tiles / ${PANELS[p.panel].watt} W modules`} />
+        <Stat value={`${fmt(layout.kwp, 2)} / ${fmt(rails.kwp, 2)}`} unit="kWp" label={`tiles / ${moduleOf(p).watt} W modules`} />
         <Stat value={sign(dc)} label="DC capacity with tiles" />
         <Stat value={sign(kwh)} label="annual energy (est.)" tip="Same planes and climate; tiles run warmer with no air gap (≈ −2 %)" />
         <Stat value={fmt(layout.count)} label={`tiles (${fmt(rails.count)} modules)`} />

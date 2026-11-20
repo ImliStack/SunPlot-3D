@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSolar } from '../store.js'
-import { PANELS, SITES, CLIMATES, PLACES, SHOWS, bestTilt } from '../presets.js'
+import { PANELS, SITES, CLIMATES, PLACES, SHOWS, bestTilt, moduleOf } from '../presets.js'
 import { geocode } from '../installations.js'
 import Icon from './Icon.jsx'
 import Brand from './Brand.jsx'
@@ -260,8 +260,18 @@ export default function Inputs() {
               {Object.entries(PANELS).filter(([, m]) => m.library).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
             </optgroup>
           </select>
-          <span className="field-hint">{PANELS[p.panel].note}</span>
+          <span className="field-hint">{moduleOf(p).note}</span>
         </label>
+        {p.panel === 'custom' && (
+          <div className="custom-module">
+            <Field k="customL" label="Length" min={0.8} max={2.6} step={0.001} unit="m" />
+            <Field k="customW" label="Width" min={0.5} max={1.5} step={0.001} unit="m" />
+            <Field k="customWatt" label="Rated power (STC)" min={50} max={800} step={5} unit="W" />
+            <Field k="customVoc" label="Open-circuit voltage Voc" min={10} max={80} step={0.1} unit="V" />
+            <Field k="customIsc" label="Short-circuit current Isc" min={1} max={25} step={0.01} unit="A" />
+            <Field k="customGamma" label="Power temp. coefficient" min={-0.5} max={-0.2} step={0.01} unit="%/°C" />
+          </div>
+        )}
         <div className="seg" role="radiogroup" aria-label="Orientation">
           <button role="radio" aria-checked={p.portrait} className={p.portrait ? 'is-on' : ''} onClick={() => set('portrait', true)}>Portrait</button>
           <button role="radio" aria-checked={!p.portrait} className={!p.portrait ? 'is-on' : ''} onClick={() => set('portrait', false)}>Landscape</button>
@@ -272,6 +282,9 @@ export default function Inputs() {
         <Field k="groundTilt" label="Tilt" min={0} max={60} unit="°" hint={`Best fixed tilt here ≈ ${bestTilt(p.lat)}°`} />
         <Field k="stack" label="Modules per table (up slope)" min={1} max={4} />
         <Field k="clearance" label="Ground clearance" min={0.3} max={2.5} step={0.1} unit="m" />
+        <Field k="rackHeight" label="Structure height (low edge)" min={0} max={4} step={0.05}
+          format={(v) => (v ? 'm' : `m · default ${p.site === 'terrace' && p.elevated ? '2.2' : '0.15'}`)}
+          hint="Height of the module's low edge above the roof. Raised structures clear parapets and keep the terrace usable; they change shading and wind load." />
         <Field k="target" label="Target size" min={0} max={{ ground: 5000, airport: 5000, carport: 2000, flat: 500, busstop: 100 }[p.site] ?? 30} step={0.5}
           format={(v) => (v ? 'kWp' : 'kWp · fill')} hint="0 fills all the usable space." />
         <Toggle k="bothFaces" label="Use every roof plane" hint="Also planes facing away from the sun." />

@@ -109,3 +109,22 @@ describe('the overlap check itself', () => {
   it('ignores squares that only touch', () => expect(overlap(sq(0, 0), sq(1, 0))).toBe(false))
   it('detects a rotated overlap', () => expect(overlap(sq(0, 0), [[0.5, -0.2], [1.4, 0.5], [0.7, 1.4], [-0.2, 0.7]])).toBe(true))
 })
+
+describe('custom module and structure height', async () => {
+  const { computeLayout } = await import('../src/layout.js')
+  const { DEFAULTS, panelOf } = await import('../src/presets.js')
+  it('custom module size changes the count on the same roof', () => {
+    const base = { ...DEFAULTS, site: 'flat', length: 30, width: 20 }
+    const big = computeLayout({ ...base, panel: 'custom', customL: 2.382, customW: 1.134, customWatt: 620 })
+    const small = computeLayout({ ...base, panel: 'custom', customL: 1.722, customW: 1.134, customWatt: 430 })
+    expect(small.count).toBeGreaterThan(big.count)
+    expect(panelOf({ ...base, panel: 'custom', customWatt: 620 }).watt).toBe(620)
+  })
+  it('structure height raises the racks', () => {
+    const base = { ...DEFAULTS, site: 'flat', length: 30, width: 20 }
+    const low = computeLayout(base)
+    const high = computeLayout({ ...base, rackHeight: 2.5 })
+    const minY = (l) => Math.min(...l.panels.map((q) => q.pos[1]))
+    expect(minY(high) - minY(low)).toBeCloseTo(2.35, 1)
+  })
+})
