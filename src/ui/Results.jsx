@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useSolar } from '../store.js'
 import { useLayout, useYield, useEngineering } from '../hooks.js'
-import { CLIMATES, PANELS, panelOf, usesTiles } from '../presets.js'
+import { CLIMATES, PANELS, panelOf, usesTiles, moduleOf } from '../presets.js'
 import { computeLayout } from '../layout.js'
 import { MONTHS } from '../solar.js'
 import { LANDMARKS, fetchNearby, distanceKm } from '../installations.js'
 import { climateClass } from '../climate.js'
 import Icon from './Icon.jsx'
+import Stat from './Stat.jsx'
 import { ElectricalTab, MoneyTab } from './Engineering.jsx'
+import Alternatives from './Alternatives.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 const energy = (kwh) => (kwh >= 1e6 ? [fmt(kwh / 1e6, 2), 'GWh'] : kwh >= 1e4 ? [fmt(kwh / 1e3, 1), 'MWh'] : [fmt(kwh), 'kWh'])
@@ -17,15 +19,6 @@ const bearing = (az) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(
 const LETTERS = 'ABCDEFGH'
 const DEGRADE = 0.005 // per year, typical TOPCon linear warranty
 const DC_AC = 1.2 // typical inverter loading ratio
-
-function Stat({ value, unit, label, big, tip }) {
-  return (
-    <div className={`stat ${big ? 'is-big' : ''}`} title={tip}>
-      <span className="stat-value">{value}{unit && <small> {unit}</small>}</span>
-      <span className="stat-label">{label}</span>
-    </div>
-  )
-}
 
 /** Monthly bars; optional whiskers (min–max over the years) and a reference dot per month. */
 function Bars({ values, lo, hi, marks: mark, unit, digits = 0, height = 110 }) {
@@ -89,7 +82,16 @@ function ShadeStat({ y }) {
       </div>
     )
   }
-  return <Stat value={fmt(y.shadingLoss * 100, 1)} unit="%" label="shading loss" tip="Beam light blocked by trees, other rows and obstacles, over the year" />
+  // Shaded area alone vs the bypass-diode figure used for energy, and the sky view for diffuse.
+  const mean = (rows) => (rows?.length ? rows.flat().reduce((a, b) => a + b, 0) / rows.flat().length : null)
+  const geo = mean(shading.perArrayGeometric)
+  const elec = mean(shading.perArray)
+  const tip = [
+    'Light lost to shade over the year: direct sun blocked (bypass-diode rule) plus sky light blocked.',
+    geo != null ? `Direct sun on shaded area ${fmt(geo * 100, 1)} %, with bypass diodes ${fmt(elec * 100, 1)} % (monthly mean).` : '',
+    y.skyView != null ? `Sky view ${fmt(y.skyView * 100, 1)} % of the open-sky diffuse.` : '',
+  ].filter(Boolean).join(' ')
+  return <Stat value={fmt(y.shadingLoss * 100, 1)} unit="%" label="shading loss" metric="shadingLoss" tip={tip} />
 }
 
 /** Where the sunlight goes: plane-of-array irradiation → each loss → AC energy. */
@@ -140,7 +142,7 @@ function TileCompare({ p, layout, y }) {
     <section className="card">
       <h3>Solar tiles vs modules on rails</h3>
       <div className="grid2">
-        <Stat value={`${fmt(layout.kwp, 2)} / ${fmt(rails.kwp, 2)}`} unit="kWp" label={`tiles / ${PANELS[p.panel].watt} W modules`} />
+        <Stat value={`${fmt(layout.kwp, 2)} / ${fmt(rails.kwp, 2)}`} unit="kWp" label={`tiles / ${moduleOf(p).watt} W modules`} />
         <Stat value={sign(dc)} label="DC capacity with tiles" />
         <Stat value={sign(kwh)} label="annual energy (est.)" tip="Same planes and climate; tiles run warmer with no air gap (≈ −2 %)" />
         <Stat value={fmt(layout.count)} label={`tiles (${fmt(rails.count)} modules)`} />
@@ -150,7 +152,28 @@ function TileCompare({ p, layout, y }) {
   )
 }
 
-function SystemTab({ p, layout, y }) {
+/** While the PVGIS typical year downloads (about a minute the first time), show how far along. */
+function WeatherProgress() {
+  const h = useSolar((s) => s.hourly)
+  const busy = h.status === 'loading' || (h.status === 'ready' && h.upgrading)
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (!busy) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [busy])
+  if (!busy || !h.started) return null
+  const sec = Math.max(0, Math.round((now - h.started) / 1000))
+  return (
+    <div className="card-note" role="status">
+      {h.status === 'loading' ? 'Loading hourly weather' : 'Showing NASA POWER hourly; the PVGIS typical year is on its way'}: {sec} s of about 60 s (first time only, then cached).
+      <span className="weather-progress"><i style={{ width: `${Math.min(95, (sec / 60) * 100)}%` }} /></span>
+    </div>
+  )
+}
+
+function SystemTab({ p, layout, y, mix }) {
+  const client = useSolar((s) => s.client)
   const m = panelOf(p)
   const cost = layout.kwp * 1000 * p.cost
   const savings = y.annual * p.tariff
@@ -160,13 +183,15 @@ function SystemTab({ p, layout, y }) {
   const co2 = (y.annual * p.co2) / 1000
   const [mwh, unitE] = energy(y.annual)
   const [kwp, unitP] = power(layout.kwp)
+  const hourly = y.source === 'hourly'
   const measured = y.source === 'measured'
+  const hourlyState = useSolar((s) => s.hourly)
   return (
     <>
       <div className="hero">
-        <Stat big value={fmt(layout.count)} label="modules" />
-        <Stat big value={kwp} unit={unitP} label="DC capacity" />
-        <Stat big value={mwh} unit={unitE} label="per year (P50)" />
+        <Stat big value={fmt(layout.count)} label="modules" metric="modules" />
+        <Stat big value={kwp} unit={unitP} label="DC capacity" metric="dcCapacity" />
+        <Stat big value={mwh} unit={unitE} label="per year (P50)" metric="annualEnergy" />
       </div>
 
       {layout.notes.length > 0 && (
@@ -174,14 +199,19 @@ function SystemTab({ p, layout, y }) {
       )}
 
       <section className="card">
-        <h3>Energy by month <span className={`badge ${measured ? 'is-ok' : ''}`}>{measured ? `Measured climate ${y.years[0].year}–${y.years[y.years.length - 1].year}` : 'Climate-class model'}</span></h3>
+        <h3>Energy by month <span className={`badge ${hourly ? 'is-ok' : 'is-warn'}`} title={hourly ? `${y.weather.provider}: ${y.weather.dataset} (${y.weather.kind}). ${y.engine}.` : 'Shown while hourly weather loads; not used in reports.'}>
+          {hourly ? `Hourly · ${y.weather.dataset}${hourlyState.upgrading ? ' · typical year loading…' : ''}` : hourlyState.status === 'error' ? 'Estimate · hourly weather unavailable' : 'Estimate · loading hourly weather…'}
+        </span></h3>
+        <WeatherProgress />
+        {hourly && y.weather.quality && !y.weather.quality.ok && <p className="card-note warn">Weather data check: {y.weather.quality.issues.join('; ')}.</p>}
+        {hourlyState.status === 'error' && <p className="card-note warn">Hourly weather could not be loaded ({hourlyState.error}). Figures below are a monthly estimate, not the hourly simulation.</p>}
         <Bars values={y.months} unit="kWh" />
         <div className="kpis">
-          <Stat value={fmt(y.specific)} unit="kWh/kWp" label="specific yield" tip="Annual energy per kWp installed" />
-          <Stat value={fmt(cuf * 100, 1)} unit="%" label="CUF" tip="Capacity utilisation factor = energy ÷ (kWp × 8760 h)" />
-          <Stat value={fmt((y.pr ?? 0) * 100, 1)} unit="%" label="performance ratio" />
-          {measured
-            ? <Stat value={energy(y.p90).join(' ')} label="P90 (1-yr)" tip="Exceeded 9 years in 10, from the spread of the last ten years" />
+          <Stat value={fmt(y.specific)} unit="kWh/kWp" label="specific yield" metric="specificYield" tip="Annual energy per kWp installed" />
+          <Stat value={fmt((y.capacityFactor ?? cuf) * 100, 1)} unit="%" label="capacity factor (DC)" metric="capacityFactor" tip="Annual AC energy ÷ (DC kWp × hours in the weather year)" />
+          <Stat value={fmt((y.pr ?? 0) * 100, 1)} unit="%" label="performance ratio" metric="performanceRatio" />
+          {y.p90 != null
+            ? <Stat value={energy(y.p90).join(' ')} label="P90 (1-yr)" metric="p90" tip="P50 − 1.2816 σ, with σ the year-to-year spread of ten years of NASA POWER irradiation (weather variability only)" />
             : <Stat value={fmt(y.annual / 365, 1)} unit="kWh" label="per day, avg" />}
           <ShadeStat y={y} />
         </div>
@@ -189,7 +219,7 @@ function SystemTab({ p, layout, y }) {
 
       {usesTiles(p) && <TileCompare p={p} layout={layout} y={y} />}
 
-      {measured && y.losses && <Waterfall y={y} />}
+      {y.losses && <Waterfall y={y} />}
 
       <section className="card">
         <h3>Arrays</h3>
@@ -212,9 +242,11 @@ function SystemTab({ p, layout, y }) {
       </section>
 
       <section className="card grid2">
-        <Stat value={power(layout.kwp / DC_AC)[0]} unit={power(layout.kwp / DC_AC)[1].replace('p', '')} label={`AC inverter (DC:AC ${DC_AC})`} />
+        {y.acRating
+          ? <Stat value={power(y.acRating / 1000)[0]} unit={power(y.acRating / 1000)[1].replace('p', '')} label={`AC inverter (DC:AC ${fmt(layout.kwp / (y.acRating / 1000), 2)})`} />
+          : <Stat value={power(layout.kwp / DC_AC)[0]} unit={power(layout.kwp / DC_AC)[1].replace('p', '')} label={`AC inverter (DC:AC ${DC_AC}, assumed)`} />}
         <Stat value={energy(life).join(' ')} label="25-year energy (0.5 %/yr loss)" />
-        <Stat value={fmt(layout.moduleArea)} unit="m²" label="module area" />
+        <Stat value={fmt(layout.moduleArea)} unit="m²" label="module area" metric="moduleArea" />
         <Stat value={fmt(layout.coverage * 100)} unit="%" label={['ground'].includes(p.site) ? 'ground cover ratio' : 'of the surface'} />
         {layout.rowInfo && <Stat value={fmt(layout.rowInfo.pitch, 2)} unit="m" label="row pitch" />}
         {layout.rowInfo && <Stat value={fmt(layout.rowInfo.sun, 1)} unit="°" label="design sun (winter noon)" />}
@@ -223,18 +255,22 @@ function SystemTab({ p, layout, y }) {
       </section>
 
       <section className="card grid2">
-        <Stat value={money(p.cur, cost)} label="installed cost" />
+        <Stat value={money(p.cur, cost)} label="installed cost" metric="installCost" />
         <Stat value={money(p.cur, savings)} label="saved per year" />
-        <Stat value={payback ? fmt(payback, 1) : '—'} unit="yr" label="simple payback" />
-        <Stat value={fmt(co2, 1)} unit="t" label="CO₂ avoided / yr" />
+        <Stat value={payback ? fmt(payback, 1) : '—'} unit="yr" label="simple payback" metric="payback" />
+        <Stat value={fmt(co2, 1)} unit="t" label="CO₂ avoided / yr" metric="co2" />
       </section>
 
       {layout.facts.length > 0 && <ul className="facts">{layout.facts.map((f) => <li key={f}>{f}</li>)}</ul>}
 
+      {!client && <Alternatives p={p} y={y} mix={mix} />}
+
       <p className="fine">
-        Concept estimate, not an engineering design. {measured
-          ? 'Monthly NASA POWER irradiance split into beam and diffuse (Collares-Pereira & Rabl), transposed per plane; soiling from rain events and your cleaning interval, snow cover from snowfall, tilt and temperature; 14 % system losses.'
-          : `Clear-sky model × ${CLIMATES[p.climate].label.toLowerCase()} factor ${CLIMATES[p.climate].k} × ${y.pr} PR.`} Shading is ray-cast per module centre (beam only). Confirm with PVsyst / PVWatts and a site survey.
+        Concept estimate, not an engineering design. {hourly
+          ? `Hour-by-hour simulation on ${y.weather.dataset}: NREL SPA sun position, Perez transposition, physical IAM, SAPM cell temperature (${y.mount.replace(/_/g, ' ')}), PVWatts DC and inverter with clipping at ${fmt(y.acRating / 1000, 1)} kW AC, soiling from rain events, snow from snowfall; validated against pvlib (docs/VALIDATION_REPORT.md).`
+          : measured
+            ? 'Monthly estimate from NASA POWER means (shown until hourly weather loads).'
+            : `Rough clear-sky estimate × ${CLIMATES[p.climate].label.toLowerCase()} factor (shown until weather loads).`} Shading is ray-cast per module centre for beam light. Future generation can't be predicted exactly; P90 reflects weather variability only.
       </p>
     </>
   )
@@ -316,7 +352,7 @@ function ClimateTab({ p, y }) {
       <section className="card">
         <h3>Last ten years</h3>
         <YearBars items={s.yearly} valueKey="ghi" unit="kWh/m²" />
-        {y.source === 'measured' && (
+        {y.years?.length > 0 && (
           <>
             <h3 className="sub">This design’s energy, year by year</h3>
             <YearBars items={y.years} valueKey="kwh" unit="kWh" line={y.p90} lineLabel="P90" />
@@ -428,7 +464,7 @@ export default function Results() {
         ))}
       </div>
       <div className="tab-body" aria-live="polite">
-        {tab === 'system' && <SystemTab p={p} layout={layout} y={y} />}
+        {tab === 'system' && <SystemTab p={p} layout={layout} y={y} mix={eng.mix} />}
         {tab === 'electrical' && <ElectricalTab p={p} layout={layout} eng={eng} />}
         {tab === 'money' && <MoneyTab p={p} layout={layout} eng={eng} survey={survey} />}
         {tab === 'climate' && <ClimateTab p={p} y={y} />}

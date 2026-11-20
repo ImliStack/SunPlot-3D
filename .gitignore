@@ -4,3 +4,4 @@ dist
 .gstack/
 .frames/
 outputs/
+validation/.venv/

@@ -328,16 +328,19 @@ function terrace(p, size, cap, out) {
   const obstacles = []
   if (t.mumty) obstacles.push({ kind: 'housing', x: t.mumty[0], z: t.mumty[1], w: 2.6, d: 2.2, h: 2.6, y0: H })
   if (t.tank) obstacles.push({ kind: 'tank', x: t.tank[0], z: t.tank[1], w: 1.3, d: 1.3, h: 2.2, y0: H })
+  // Solar water heater (collector + tank, ~2 × 1.2 m) and AC outdoor units marked in the survey.
+  if (t.heater) obstacles.push({ kind: 'swh', x: t.heater[0], z: t.heater[1], w: 2.0, d: 1.3, h: 1.6, y0: H })
+  for (const a of t.ac ?? []) obstacles.push({ kind: 'hvac', x: a[0], z: a[1], w: 0.9, d: 0.4, h: 0.75, y0: H })
   out.obstacles = obstacles
   out.L = bb.x1 - bb.x0
   out.W = bb.z1 - bb.z0
-  out.building = { kind: 'terrace', H, parapet: 0.9, ring, style: t.style ?? 'home', name: t.name ?? '' }
+  out.building = { kind: 'terrace', H, parapet: t.parapet ?? 0.9, ring, style: t.style ?? 'home', name: t.name ?? '' }
   out.neighbours = t.neighbours ?? []
   out.terrace = t
   const rects = obstacles.map((ob) => grown(ob, 0.6))
   out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
   const outside = (x, z) => !inside([x, z], ring) || edgeDistance([x, z], ring) < p.edge - 1e-3
-  const elevated = p.elevated ? 2.2 : RACK_CLEARANCE
+  const elevated = p.rackHeight > 0 ? p.rackHeight : p.elevated ? 2.2 : RACK_CLEARANCE
   const rows = racks(p, size, cap, {
     base: H, clearance: elevated, tilt: p.rackTilt,
     xSpan: out.L - 2 * p.edge, zFront: bb.z1 - p.edge, zBack: bb.z0 + p.edge,
@@ -578,7 +581,7 @@ export function computeLayout(input) {
     out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
     out.zones.push(flatZone(L, W, p.edge, H + 0.05))
     const rows = racks(p, size, cap, {
-      base: H, clearance: RACK_CLEARANCE, tilt: p.rackTilt,
+      base: H, clearance: p.rackHeight > 0 ? p.rackHeight : RACK_CLEARANCE, tilt: p.rackTilt,
       xSpan: L - 2 * p.edge, zFront: W / 2 - p.edge, zBack: -W / 2 + p.edge,
     }, keepOut(rects), rects)
     Object.assign(out, { panels: rows.panels, posts: rows.posts, rails: rows.rails })
@@ -633,7 +636,7 @@ export function computeLayout(input) {
     out.keepouts = rects.map((r) => ({ ...r, y: H + 0.05 }))
     out.zones.push(flatZone(L, W, p.edge, H + 0.05))
     const rows = racks(p, size, cap, {
-      base: H, clearance: RACK_CLEARANCE, tilt: p.rackTilt,
+      base: H, clearance: p.rackHeight > 0 ? p.rackHeight : RACK_CLEARANCE, tilt: p.rackTilt,
       xSpan: L - 2 * p.edge, zFront: W / 2 - p.edge, zBack: -W / 2 + p.edge,
     }, keepOut(rects), rects)
     out.panels.push(...rows.panels)

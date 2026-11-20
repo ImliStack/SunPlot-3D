@@ -3,6 +3,20 @@ import { equatorAzimuth } from '../presets.js'
 import { CAT_BY_KEY } from './poi.js'
 
 const LEVEL_M = 3.2
+const STOREY = 3
+
+/**
+ * Cable lengths from the survey: DC from the array to the inverter, AC from the inverter to the
+ * meter. `meterDist` is the route from the roof edge down to the meter; 8 m covers the run across
+ * the terrace to the array, 3 m the drop inside the meter room.
+ */
+export function cableRuns(sv) {
+  if (!(sv.meterDist > 0) || !sv.levels && !sv.ring) return {}
+  const down = (Math.max(1, Math.round(sv.levels ?? 2)) * STOREY) + (sv.meterDist ?? 0)
+  return sv.inverterAt === 'terrace'
+    ? { dcRun: 8, acRun: Math.round(down + 3) }
+    : { dcRun: Math.round(8 + down), acRun: 3 }
+}
 
 /**
  * Turn the survey (in [lon, lat]) into SunPlot inputs: a `terrace` in site metres centred on the
@@ -31,12 +45,19 @@ export function surveyToParams(sv) {
     lon: Math.round(origin[0] * 1000) / 1000,
     placeName: sv.poi?.name || sv.address || 'Surveyed site',
     place: '',
+    tz: '', // derived from coordinates (India → Asia/Kolkata)
     azimuth: equatorAzimuth(lat),
     ...(sv.levels ? { floors: Math.max(1, Math.round(sv.levels)) } : {}),
+    ...cableRuns(sv),
+    // A metal-sheet roof can't carry a 2 m elevated frame: modules go on rails close to the sheet.
+    ...(sv.roofType === 'sheet' ? { elevated: false } : {}),
     terrace: {
       outline,
       mumty: sv.mumty ? loc(sv.mumty) : null,
       tank: sv.tank ? loc(sv.tank) : null,
+      heater: sv.heater ? loc(sv.heater) : null,
+      ac: (sv.ac ?? []).map(loc),
+      parapet: sv.parapet ?? 0.9,
       neighbours,
       front: sv.front,
       origin,

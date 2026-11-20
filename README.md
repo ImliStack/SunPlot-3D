@@ -67,6 +67,32 @@ rain and the snow, and send the client a proposal in one click. No install, no p
   </tr>
 </table>
 
+## ✦ New: engineering engine upgrade
+
+Hour-by-hour simulation validated against NREL pvlib (0.000 % at nine sites) and PVWatts V8 (+1.8 to +3.1 % on identical weather), bypass-diode
+shading, scenarios and a sensitivity chart, plus a new workspace: analytics dock, workflow stepper,
+layout options, right-click menu and a fuller site survey. Details: [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md),
+[docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md), [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/analytics-dock.jpg" alt="Analytics dock with a year heat map of hourly output" /></td>
+    <td width="50%"><img src="docs/screenshots/context-menu.jpg" alt="Right-click menu on a module: array, tilt, shading and edit options" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Analytics dock</b>: selected day, year heat map, daily, use, temperature</sub></td>
+    <td align="center"><sub><b>Right-click</b> a module or the view: info, edit, views, layers</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/layout-options.jpg" alt="Layout options compared through the hourly engine" /></td>
+    <td width="50%"><img src="docs/screenshots/survey-checks.jpg" alt="Site survey with water heater, AC units, parapet, roof type, cable route and site checks" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Layout options</b>: tilts, east-west, roof faces, ranked and applied in one click</sub></td>
+    <td align="center"><sub><b>Survey</b>: obstacles, parapet, roof type, wiring and a photo checklist</sub></td>
+  </tr>
+</table>
+
 ## ✦ Features
 
 > How SunPlot compares with Arka360, OpenSolar, Aurora, HelioScope, PV\*SOL and SolarEdge Designer: [docs/COMPETITORS.md](docs/COMPETITORS.md).
@@ -254,13 +280,19 @@ npm install
 npm run dev        # → http://localhost:5181
 ```
 
-Climate data comes from NASA POWER the first time you open a place, then from the browser cache.
+Hourly weather comes from PVGIS (a typical year, through the `/api/pvgis` proxy; about a minute the first time) with NASA POWER hourly shown meanwhile, then from the browser cache. No API keys are needed.
 
 | Script | What it does |
 |---|---|
-| `npm run dev` | Dev server with hot reload on port 5181 |
+| `npm run dev` | Dev server with hot reload on port 5181 (includes the PVGIS proxy) |
 | `npm run build` | Static production build into `dist/` |
 | `npm run preview` | Serve `dist/` locally on port 5181 |
+| `npm test` | 200+ tests: SPA, engine vs pvlib, PVWatts same-weather, finance, geometry, exports |
+| `npm run validate:reference` | Regenerate pvlib reference fixtures (Python venv in `validation/`) |
+
+Deploy: `npm run build && npx wrangler deploy` (Node 22). The Worker in `worker/index.js` serves `dist/` and proxies PVGIS. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Accuracy.** The hourly engine reproduces pvlib 0.11 to 0.000 % at nine sites and is within +1.8 to +3.1 % of NREL PVWatts V8 on identical weather. See [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md), [docs/CALCULATION_METHODOLOGY.md](docs/CALCULATION_METHODOLOGY.md) and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 ## ✦ Using SunPlot
 
@@ -356,8 +388,8 @@ flowchart LR
     S --> L["layout.js<br/>planes · rows · canopies · keep-outs"]
     L --> V["Site · Arrays<br/>3D scene"]
     L --> W["shading.worker.js<br/>ray-cast every module"]
-    N["NASA POWER<br/>10-year monthly"] --> C["climate.js"]
-    C --> Y["solar.js<br/>transpose · losses · P90"]
+    N["PVGIS TMY · NASA POWER<br/>hourly weather"] --> C["engine/weather.js"]
+    C --> Y["engine/simulate.js<br/>SPA · Perez · SAPM · PVWatts"]
     W --> Y
     L --> Y
     Y --> R["Results · Proposal PDF"]
@@ -368,8 +400,8 @@ flowchart LR
 |---|---|
 | **Layout** | `layout.js` is one pure function. Roofs become planes (eave, slope, usable half-width at each height — so hips and valleys come free); flat roofs and land become rack rows spaced for the winter-noon sun; canopies and shelters become tilted decks. Every module gets a stable key (array · row · position · stack). |
 | **Rendering** | All modules are one instanced mesh with a painted cell texture; ghosts for click-to-install are a second instanced mesh. Buildings, trees, cars and aircraft are procedural — no model files. Reflections from a local `RoomEnvironment`, ambient occlusion from N8AO. |
-| **Climate** | NASA POWER monthly all-sky / clear-sky irradiance, temperature, rain, snowfall and snow depth for the last ten complete years, cached in the browser. |
-| **Energy** | Measured horizontal irradiation is split into beam and diffuse (Collares-Pereira & Rabl), transposed per plane, then reduced by ray-cast shading (beam only), Kimber-style soiling, snow cover, cell temperature (−0.35 %/°C) and 14 % system losses. Checked against PVGIS-class results within about 5 %. |
+| **Weather** | PVGIS 5.3 typical meteorological year (hourly GHI, DNI, DHI, temperature, wind), NASA POWER hourly as fallback, plus ten NASA POWER years for rain, snow and the P90 spread. Cached in the browser, with quality checks. |
+| **Energy** | Hour by hour (`src/engine/`): NREL SPA sun position → Perez transposition → ray-cast beam shading → physical IAM → soiling and snow → SAPM cell temperature → PVWatts DC → system losses → inverter efficiency and clipping. Validated against pvlib and PVWatts V8. |
 | **Shading** | `shading.js` puts module quads, roof planes, obstacle boxes and tree crowns in a plan grid and marches a ray to the sun from every module centre — 12 days × half-hourly, weighted by beam on that module. Runs in a Web Worker. |
 | **Proposal** | `report.js` draws the PDF with jsPDF (vector charts, two 3D captures), loaded only when you make one. |
 
@@ -501,12 +533,23 @@ permits and grid connection still need a qualified installer.
 - [x] East-west racking and solar roof tiles (BIPV)
 - [x] Industrial sheds, campus mode, business (after-tax) and RESCO finance, hourly load matching, DG sync
 - [x] Saved projects with several designs, customer link ([gap analysis](docs/GAPS-AND-PLAN.md))
-- [ ] Accounts, CRM pipeline, quotes and invoices (Phase B, needs a backend)
-- [ ] EV / heat-pump future load, time-of-use battery dispatch
+- [x] Hourly engine: NREL SPA, PVGIS TMY / NASA POWER hourly, Perez, SAPM, PVWatts DC and inverter, validated against pvlib and PVWatts V8
+- [x] Bypass-diode shading (9 points per module) and sky-view diffuse loss
+- [x] Scenarios (P90/P10), NPV sensitivity, discounted payback, sourced incentives, CEC equipment library, custom modules
+- [x] Layout options, analytics dock, workflow stepper, undo/redo, autosave, right-click menu, project file import/export
+- [x] Survey: water heater and AC units, parapet height, roof type, cable route, photo checklist, street side from roads
+
+**Next, picked up later**
+- [ ] PVWatts same-weather check for London, Dubai, Sydney and Tromsø (needs an NREL API key; Ajmer and Mumbai done)
+- [ ] Engineering mode: CEC single-diode module model alongside the PVWatts quick mode
+- [ ] Hourly battery dispatch (self-consumption, ToD, backup) and EV / heat-pump future load
+- [ ] Bifacial gain, single-axis trackers
+- [ ] String-level mismatch and terrain / far-horizon shading (PVGIS horizon profile)
+- [ ] White-label settings: installer logo, colours and footer across app, link and PDF
+- [ ] Check against a measured system's production data before calling the engine production-ready
+- [ ] Accounts, CRM pipeline, quotes and invoices; customer leads, e-sign and vendor quotes (needs a backend)
 - [ ] DISCOM net-metering application pack (India)
 - [ ] Pitched roofs and multi-level terraces in the survey
-- [ ] Customer leads, e-sign and vendor quotes (separate backend)
-- [ ] Hourly TMY weather (PVGIS / NREL), bifacial gain, trackers
 - [ ] Wind and snow load zones per region
 
 Research notes and earlier milestones are in [PLAN.md](PLAN.md).

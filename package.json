@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --port 5181",
     "build": "vite build",
-    "preview": "vite preview --port 5181"
+    "preview": "vite preview --port 5181",
+    "test": "vitest run",
+    "validate:reference": "validation/.venv/bin/python validation/reference.py"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "playwright": "^1.58.2",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
   }
 }

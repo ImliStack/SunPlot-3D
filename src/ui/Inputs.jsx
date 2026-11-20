@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSolar } from '../store.js'
-import { PANELS, SITES, CLIMATES, PLACES, SHOWS, bestTilt } from '../presets.js'
+import { PANELS, SITES, CLIMATES, PLACES, SHOWS, bestTilt, moduleOf } from '../presets.js'
 import { geocode } from '../installations.js'
 import Icon from './Icon.jsx'
 import Brand from './Brand.jsx'
@@ -50,12 +50,33 @@ export function Toggle({ k, label, hint }) {
   )
 }
 
-function Section({ title, icon, children, aside }) {
+function Section({ title, icon, children, aside, id }) {
+  const key = id ?? String(title).toLowerCase().replace(/[^a-z]+/g, '-')
+  const focus = useSolar((s) => s.sectionFocus)
+  const folded = useSolar((s) => !!s.collapsed[key])
+  const open = focus ? focus === key : !folded
   return (
-    <section className="section">
-      <h2 className="section-title"><Icon name={icon} size={16} />{title}{aside}</h2>
-      {children}
+    <section className={`section section-${key} ${open ? '' : 'is-folded'}`}>
+      <h2 className="section-title">
+        <button className="section-toggle" aria-expanded={open} onClick={() => useSolar.getState().toggleSection(key, !open)}>
+          <Icon name={icon} size={16} />{title}<span className="chev" aria-hidden>{open ? '▾' : '▸'}</span>
+        </button>
+        {aside}
+      </h2>
+      {open && children}
     </section>
+  )
+}
+
+/** Shown while a workflow step has narrowed the inputs to one section. */
+function FocusBar() {
+  const focus = useSolar((s) => s.sectionFocus)
+  if (!focus) return null
+  return (
+    <div className="focus-bar">
+      <span>Showing one step's inputs</span>
+      <button className="link-btn small" onClick={() => useSolar.getState().focusSection(null)}>Show all sections</button>
+    </div>
   )
 }
 
@@ -112,13 +133,13 @@ function PlaceSearch() {
     return () => clearTimeout(t)
   }, [q])
   const pick = (h) => {
-    goTo({ lat: h.lat, lon: h.lon, name: h.name })
+    goTo({ lat: h.lat, lon: h.lon, name: h.name, tz: h.tz })
     setQ('')
     setHits([])
   }
   const locate = () => {
     navigator.geolocation?.getCurrentPosition(
-      (pos) => goTo({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'My location' }),
+      (pos) => goTo({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: 'My location', tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       () => setState('error'),
     )
   }
@@ -175,6 +196,7 @@ export default function Inputs() {
     <aside className="inputs" aria-label="Design inputs">
       <Brand />
       <p className="lede">Lay out PV on homes, buildings, carports, shelters, airports or open land — with measured climate.</p>
+      <FocusBar />
 
       <SitePicker />
 
@@ -200,7 +222,7 @@ export default function Inputs() {
         </label>
       </Section>
 
-      <Section title={structure} icon={isHouse ? 'home' : SITES[p.site] ? p.site : 'ruler'}>
+      <Section id="structure" title={structure} icon={isHouse ? 'home' : SITES[p.site] ? p.site : 'ruler'}>
         <Field k="length" label={p.site === 'busstop' ? 'Shelter length' : p.site === 'airport' ? 'Terminal length' : HOUSES.includes(p.site) && p.site !== 'shed' ? 'Length (along ridge)' : 'Length'}
           min={p.site === 'busstop' ? 3 : 4} max={p.site === 'airport' ? 600 : p.site === 'ground' ? 300 : p.site === 'industrial' ? 300 : 80} step={0.5} unit="m" />
         <Field k="spans" label="Spans (gables side by side)" min={1} max={6} hint="Each span is one portal frame bay across the shed." />
@@ -253,10 +275,25 @@ export default function Inputs() {
         <label className="field">
           <span className="field-head"><span className="field-label">Module</span></span>
           <select value={p.panel} onChange={(e) => set('panel', e.target.value)}>
-            {Object.entries(PANELS).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+            <optgroup label="Generic (typical datasheet values)">
+              {Object.entries(PANELS).filter(([, m]) => !m.library).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+            </optgroup>
+            <optgroup label="Named modules (CEC list via NREL SAM)">
+              {Object.entries(PANELS).filter(([, m]) => m.library).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+            </optgroup>
           </select>
-          <span className="field-hint">{PANELS[p.panel].note}</span>
+          <span className="field-hint">{moduleOf(p).note}</span>
         </label>
+        {p.panel === 'custom' && (
+          <div className="custom-module">
+            <Field k="customL" label="Length" min={0.8} max={2.6} step={0.001} unit="m" />
+            <Field k="customW" label="Width" min={0.5} max={1.5} step={0.001} unit="m" />
+            <Field k="customWatt" label="Rated power (STC)" min={50} max={800} step={5} unit="W" />
+            <Field k="customVoc" label="Open-circuit voltage Voc" min={10} max={80} step={0.1} unit="V" />
+            <Field k="customIsc" label="Short-circuit current Isc" min={1} max={25} step={0.01} unit="A" />
+            <Field k="customGamma" label="Power temp. coefficient" min={-0.5} max={-0.2} step={0.01} unit="%/°C" />
+          </div>
+        )}
         <div className="seg" role="radiogroup" aria-label="Orientation">
           <button role="radio" aria-checked={p.portrait} className={p.portrait ? 'is-on' : ''} onClick={() => set('portrait', true)}>Portrait</button>
           <button role="radio" aria-checked={!p.portrait} className={!p.portrait ? 'is-on' : ''} onClick={() => set('portrait', false)}>Landscape</button>
@@ -267,6 +304,9 @@ export default function Inputs() {
         <Field k="groundTilt" label="Tilt" min={0} max={60} unit="°" hint={`Best fixed tilt here ≈ ${bestTilt(p.lat)}°`} />
         <Field k="stack" label="Modules per table (up slope)" min={1} max={4} />
         <Field k="clearance" label="Ground clearance" min={0.3} max={2.5} step={0.1} unit="m" />
+        <Field k="rackHeight" label="Structure height (low edge)" min={0} max={4} step={0.05}
+          format={(v) => (v ? 'm' : `m · default ${p.site === 'terrace' && p.elevated ? '2.2' : '0.15'}`)}
+          hint="Height of the module's low edge above the roof. Raised structures clear parapets and keep the terrace usable; they change shading and wind load." />
         <Field k="target" label="Target size" min={0} max={{ ground: 5000, airport: 5000, carport: 2000, flat: 500, busstop: 100 }[p.site] ?? 30} step={0.5}
           format={(v) => (v ? 'kWp' : 'kWp · fill')} hint="0 fills all the usable space." />
         <Toggle k="bothFaces" label="Use every roof plane" hint="Also planes facing away from the sun." />

@@ -12,7 +12,7 @@ function hashOf(params) {
   for (const [k, v] of Object.entries(params)) {
     if (Array.isArray(v) && v.length === 12 && v.every(Number.isFinite)) { q.set(k, v.map((x) => Math.round(x)).join('.')); continue } // monthly bills
     if (v === DEFAULTS[k] || (v && typeof v === 'object')) continue // outlines stay out of the URL
-    q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : typeof v === 'number' ? String(Math.round(v * 100) / 100) : v)
+    q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : typeof v === 'number' ? String(Math.round(v * 1000) / 1000) : v) // mm precision (module sizes)
   }
   const s = q.toString()
   return s ? `#${s}` : ''

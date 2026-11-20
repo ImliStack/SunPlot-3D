@@ -21,7 +21,7 @@ shot() {
   sips -s format jpeg -s formatOptions 82 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null && rm "$OUT/$name.png"
   echo "ok $name"
 }
-prefs() { b js "localStorage.setItem('solar-theme','$1'); localStorage.setItem('solar-panels', JSON.stringify({left:${2:-true},right:${3:-true}})); 'ok'" >/dev/null; }
+prefs() { b js "localStorage.setItem('sunplot-tip-rightclick','1'); localStorage.removeItem('sunplot-autosave:v1'); localStorage.removeItem('solar-sections'); localStorage.setItem('solar-theme','$1'); localStorage.setItem('solar-panels', JSON.stringify({left:${2:-true},right:${3:-true}})); 'ok'" >/dev/null; }
 
 # Survey: Jaipur, pick the building nearest the centre, mark stair room + tank, 420 units.
 survey() {
@@ -40,6 +40,12 @@ survey() {
   fi
   if [ "$extra" = "studio" ]; then
     b js "[...document.querySelectorAll('button')].find(x => x.textContent.includes('Open this design'))?.click(); 'ok'" >/dev/null; sleep 10
+  fi
+  if [ "$extra" = "checks" ]; then
+    # Water heater, two AC units, parapet, roof needing repair, cable route and part of the photo list.
+    b js "const s = window.__solar.getState().survey; const r = s.ring; const x = r.reduce((a,p)=>a+p[0],0)/r.length, y = r.reduce((a,p)=>a+p[1],0)/r.length; window.__solar.getState().patchSurvey({ heater: [x*0.6 + r[2][0]*0.4, y*0.6 + r[2][1]*0.4], ac: [[x*0.6 + r[3][0]*0.4, y*0.6 + r[3][1]*0.4], [x*0.5 + r[3][0]*0.5, y*0.5 + r[3][1]*0.5]], parapet: 1.0, roofType: 'rcc-repair', meterDist: 14, checks: { roof: true, obstacles: true, parapet: true, meter: true, bill: true } }); 'ok'" >/dev/null
+    sleep 12
+    b js "[...document.querySelectorAll('.step-title')].find(t => t.textContent === 'On the terrace')?.scrollIntoView(); [...document.querySelectorAll('.survey-results h3')].find(h => h.textContent === 'Site checks')?.scrollIntoView(); 'ok'" >/dev/null; sleep 1
   fi
   b screenshot --viewport "$OUT/$name.png" >/dev/null
   sips -s format jpeg -s formatOptions 82 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null && rm "$OUT/$name.png"
@@ -104,6 +110,16 @@ shot customer-view "&view=client&co=Surya%20Power%20Solutions&ph=%2B91%2098290%2
 shot exports "#site=flat&day=172&hour=10" 8 "document.querySelector('[aria-label=\"Export files\"]').click(); 'x'"
 shot snow "#lat=59.9&lon=10.75&placeName=Oslo&place=&day=20&hour=12&climate=cloudy" 12
 shot rain "#place=mumbai&placeName=Mumbai&lat=19.1&lon=72.88&climate=monsoon&day=196&hour=11&site=flat" 11
+shot analytics-dock "#site=flat&day=172&hour=10" 16 \
+  "document.querySelector('.dock-toggle')?.click(); 'x'" \
+  "[...document.querySelectorAll('[role=tab]')].find(t => t.textContent === 'Year heat map')?.click(); 'x'"
+shot context-menu "#site=flat&day=172&hour=10" 10 \
+  "const c = document.querySelector('.stage canvas'); const r = c.getBoundingClientRect(); const k = window.__installKeys?.[40]; if (k) window.__solar.setState({ ctxHit: { i: 40, key: k, arr: 0, installed: true, at: performance.now() } }); c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + r.width * 0.55, clientY: r.top + r.height * 0.3 })); 'x'"
+shot layout-options "#site=flat&day=172&hour=10" 6 \
+  "window.__solar.getState().setTab('system'); 'x'" \
+  "new Promise(r => { const t = setInterval(() => { const b = [...document.querySelectorAll('.alternatives button')].find(b => /Generate/.test(b.textContent)); if (b) { clearInterval(t); b.click(); r('x') } }, 500) })" \
+  "new Promise(r => setTimeout(() => { const res = document.querySelector('.results'); const el = document.querySelector('.alternatives'); res.scrollTop = el.offsetTop - 12; r('x') }, 1500))"
+survey survey-checks checks
 survey survey-search search
 survey survey
 survey survey-studio studio

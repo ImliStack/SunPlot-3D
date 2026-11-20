@@ -3,12 +3,12 @@ import { useSolar } from '../store.js'
 import { useLayout, useYield, shadingKey } from '../hooks.js'
 import { geocode } from '../installations.js'
 import { autocomplete } from './places.js'
-import { PANELS } from '../presets.js'
+import { PANELS, moduleOf } from '../presets.js'
 import { SITE_SIZES } from '../store.js'
-import { fetchBuildings } from './osm.js'
-import { surveyToParams } from './apply.js'
+import { fetchBuildings, fetchRoads } from './osm.js'
+import { surveyToParams, cableRuns } from './apply.js'
 import { computeLayout } from '../layout.js'
-import { area, openRing, toLocal } from './geo.js'
+import { area, openRing, toLocal, centroid, streetSide } from './geo.js'
 import { subsidy, isSpecialState, sizeSystem, rankZones, bestModules, placementAdvice, MAKERS } from './sizing.js'
 import SurveyMap from './SurveyMap.jsx'
 import { POI_CATS, CAT_BY_KEY } from './poi.js'
@@ -18,6 +18,39 @@ import PanelToggles from '../ui/PanelToggles.jsx'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 const inr = (n) => `₹${fmt(Math.round(n))}`
+
+const SIDE_NAME = { N: 'north', E: 'east', S: 'south', W: 'west' }
+
+export const ROOF_TYPES = {
+  rcc: { short: 'RCC slab', hint: 'Sound concrete slab: elevated or low racks, anchored or ballasted.' },
+  'rcc-repair': { short: 'RCC, needs repair', hint: 'Leaks or cracks: waterproof and repair before installing; anchor bolts go into sound concrete only.' },
+  sheet: { short: 'Metal sheet', hint: 'Sheet roof over the terrace: rails clamped to the purlins, no elevated frame; check sheet age and gauge.' },
+}
+
+export const PHOTO_CHECKS = [
+  ['roof', 'Whole terrace, from each corner'],
+  ['obstacles', 'Stair room, tank, heater and AC units'],
+  ['parapet', 'Parapet with a tape measure'],
+  ['slab', 'Slab condition: cracks, damp, waterproofing'],
+  ['shade', 'Trees and buildings that may shade (south side)'],
+  ['meter', 'Electricity meter and main switchboard'],
+  ['bill', 'Latest bill: sanctioned load and consumer number'],
+  ['route', 'Cable route and inverter wall'],
+]
+
+/** Plain-language checks from the survey answers, for the results panel and the proposal. */
+export function siteChecks(sv, params) {
+  const out = []
+  if (sv.roofType === 'rcc-repair') out.push('Repair the cracks and waterproof the slab before installing; the structure is anchored into sound concrete only.')
+  if (sv.roofType === 'sheet') out.push('Metal sheet roof: modules on rails clamped to the purlins, no elevated frame. Check the sheet age and gauge.')
+  const clear = params.rackHeight > 0 ? params.rackHeight : params.elevated && sv.roofType !== 'sheet' ? 2.2 : 0.15
+  if ((sv.parapet ?? 0) > clear + 0.05) out.push(`The ${fmt(sv.parapet, 2)} m parapet stands above the ${fmt(clear, 2)} m module edge: it shades the outer rows in the morning and evening. The shade study includes it; an elevated structure avoids it.`)
+  const c = cableRuns(sv)
+  if (c.dcRun) out.push(`Cable route: about ${c.dcRun} m DC and ${c.acRun} m AC (inverter ${sv.inverterAt === 'terrace' ? 'on the terrace' : 'near the meter'}).`)
+  const done = PHOTO_CHECKS.filter(([k]) => sv.checks?.[k]).length
+  out.push(done === PHOTO_CHECKS.length ? 'All site photos taken.' : `Site photos: ${done} of ${PHOTO_CHECKS.length} taken.`)
+  return out
+}
 
 /** A numbered step card; `summary` shows on the right once the step is done. */
 function Step({ n, title, done, summary, children }) {
@@ -72,7 +105,7 @@ function FindHouse() {
   const pick = (h) => {
     patchSurvey({
       center: [h.lon, h.lat], pin: [h.lon, h.lat], address: [h.name, h.where].filter(Boolean).join(', '),
-      state: h.state || useSolar.getState().survey.state, ring: null, draft: [], mumty: null, tank: null, neighbours: [],
+      state: h.state || useSolar.getState().survey.state, ring: null, draft: [], mumty: null, tank: null, heater: null, ac: [], frontFrom: null, neighbours: [],
     })
     setQ(h.name)
     setOpen(false)
@@ -200,22 +233,62 @@ function Steps() {
         <CampusCard />
       </Step>
 
-      <Step n={3} title="On the terrace" done={!!(sv.mumty || sv.tank)} summary={[sv.mumty && 'stair room', sv.tank && 'tank'].filter(Boolean).join(' + ')}>
+      <Step n={3} title="On the terrace" done={!!(sv.mumty || sv.tank || sv.heater || sv.ac?.length)}
+        summary={[sv.mumty && 'stair room', sv.tank && 'tank', sv.heater && 'heater', sv.ac?.length && `${sv.ac.length} AC`].filter(Boolean).join(' + ')}>
         <div className="mark-grid">
           {mark('mumty', 'Stair room', 'home')}
           {mark('tank', 'Water tank', 'cloud')}
+          {mark('heater', 'Water heater', 'sun')}
+          <button className={`mark-tile ${sv.ac?.length ? 'is-set' : ''} ${sv.tool === 'ac' ? 'is-on' : ''}`}
+            onClick={() => patchSurvey({ tool: sv.tool === 'ac' ? 'pick' : 'ac' })}>
+            <Icon name="hq" size={18} />
+            <span><b>AC units{sv.ac?.length ? ` · ${sv.ac.length}` : ''}</b><small>{sv.tool === 'ac' ? 'Click each unit · click here to finish' : sv.ac?.length ? 'Drag to move' : 'Place on map'}</small></span>
+            {sv.ac?.length > 0 && <span className="x" role="button" aria-label="Remove the last AC unit" title="Remove the last one" onClick={(e) => { e.stopPropagation(); patchSurvey({ ac: sv.ac.slice(0, -1) }) }}><Icon name="close" size={12} /></span>}
+          </button>
         </div>
+        <label className="field mini"><span className="field-label">Parapet wall height</span>
+          <span className="inline">
+            <input className="text" type="number" min={0} max={2} step={0.05} value={sv.parapet ?? 0.9} onChange={(e) => patchSurvey({ parapet: Math.min(2, Math.max(0, Number(e.target.value))) })} />
+            <span className="unit">m</span>
+          </span>
+          <span className="field-hint">Measure from the terrace floor. Walls above the module edge shade the outer rows.</span>
+        </label>
         <div className="row-inline">
           <span className="field-label">Street side</span>
           <div className="seg four compact" role="radiogroup" aria-label="Street side">
             {['N', 'E', 'S', 'W'].map((d) => (
-              <button key={d} role="radio" aria-checked={sv.front === d} className={sv.front === d ? 'is-on' : ''} onClick={() => patchSurvey({ front: d })}>{d}</button>
+              <button key={d} role="radio" aria-checked={sv.front === d} className={sv.front === d ? 'is-on' : ''} onClick={() => patchSurvey({ front: d, frontFrom: { manual: true } })}>{d}</button>
             ))}
           </div>
         </div>
+        {sv.frontFrom?.road && <p className="field-hint">From the map: {sv.frontFrom.road} runs along the {SIDE_NAME[sv.frontFrom.side]} side ({fmt(sv.frontFrom.distance)} m away). Tap a side to change it.</p>}
       </Step>
 
-      <Step n={4} title="Electricity use" done={sv.units > 0} summary={sv.units ? `${fmt(sv.units)} units/mo` : ''}>
+      <Step n={4} title="Roof and wiring" done={!!sv.roofType && sv.meterDist > 0} summary={ROOF_TYPES[sv.roofType]?.short ?? ''}>
+        <div className="seg" role="radiogroup" aria-label="Roof type">
+          {Object.entries(ROOF_TYPES).map(([k, r]) => (
+            <button key={k} role="radio" aria-checked={sv.roofType === k} className={sv.roofType === k ? 'is-on' : ''} onClick={() => patchSurvey({ roofType: k })} title={r.hint}>{r.short}</button>
+          ))}
+        </div>
+        <p className="field-hint">{ROOF_TYPES[sv.roofType]?.hint}</p>
+        <div className="row-inline">
+          <span className="field-label">Inverter</span>
+          <div className="seg compact" role="radiogroup" aria-label="Inverter location">
+            {[['ground', 'Near the meter'], ['terrace', 'On the terrace']].map(([k, l]) => (
+              <button key={k} role="radio" aria-checked={sv.inverterAt === k} className={sv.inverterAt === k ? 'is-on' : ''} onClick={() => patchSurvey({ inverterAt: k })}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <label className="field mini"><span className="field-label">Cable route, roof edge → meter</span>
+          <span className="inline">
+            <input className="text" type="number" min={0} max={300} value={sv.meterDist ?? 0} onChange={(e) => patchSurvey({ meterDist: Math.max(0, Number(e.target.value)) })} />
+            <span className="unit">m</span>
+          </span>
+          {(() => { const c = cableRuns(sv); return c.dcRun ? <span className="field-hint">≈ {c.dcRun} m DC and {c.acRun} m AC cable, used for voltage drop and the bill of materials.</span> : null })()}
+        </label>
+      </Step>
+
+      <Step n={5} title="Electricity use" done={sv.units > 0} summary={sv.units ? `${fmt(sv.units)} units/mo` : ''}>
         <div className="pair two">
           <label className="field mini"><span className="field-label">Units / month</span>
             <input className="text" type="number" min={0} value={sv.units} onChange={(e) => patchSurvey({ units: Math.max(0, Number(e.target.value)), bill: 0 })} /></label>
@@ -231,6 +304,20 @@ function Steps() {
         </div>
         <label className="field mini"><span className="field-label">State (for subsidy rates)</span>
           <input className="text" value={sv.state} placeholder="e.g. Rajasthan" onChange={(e) => patchSurvey({ state: e.target.value })} /></label>
+      </Step>
+
+      <Step n={6} title="Site photos" done={PHOTO_CHECKS.every(([k]) => sv.checks?.[k])} summary={`${PHOTO_CHECKS.filter(([k]) => sv.checks?.[k]).length}/${PHOTO_CHECKS.length}`}>
+        <p className="field-hint" style={{ marginTop: 0 }}>For the site visit: tick each photo once taken. The list goes into the proposal.</p>
+        <ul className="checklist">
+          {PHOTO_CHECKS.map(([k, label]) => (
+            <li key={k}><label>
+              <input type="checkbox" checked={!!sv.checks?.[k]} onChange={(e) => patchSurvey({ checks: { ...sv.checks, [k]: e.target.checked } })} />
+              <span>{label}</span>
+            </label></li>
+          ))}
+        </ul>
+        <label className="field mini"><span className="field-label">Notes</span>
+          <textarea className="text" rows={2} value={sv.notes ?? ''} placeholder="Access, ladder, roof age, earthing pit spot…" onChange={(e) => patchSurvey({ notes: e.target.value })} /></label>
       </Step>
     </aside>
   )
@@ -280,7 +367,7 @@ function useCampus(sv, params, specific) {
   return useMemo(() => {
     if (!sv.campusMode) return []
     return (sv.campus ?? []).map((b) => {
-      const next = surveyToParams({ ...sv, ring: b.ring, mumty: null, tank: null, neighbours: [], buildings: [] })
+      const next = surveyToParams({ ...sv, ring: b.ring, mumty: null, tank: null, heater: null, ac: [], neighbours: [], buildings: [] })
       const floors = Math.max(1, Math.round(b.levels || params.floors))
       const L = computeLayout({ ...params, ...next, site: 'terrace', floors })
       const ring = openRing(b.ring)
@@ -309,7 +396,7 @@ function Results({ rec }) {
     useSolar.getState().patch({ useKwh: sv.units || 0, subsidy: rec.subsidy || 0 })
     openInStudio([...rec.keys])
   }
-  const m = PANELS[params.panel]
+  const m = moduleOf(params)
   return (
     <aside className="results survey-results" aria-label="Survey results">
       {rec.poi && (
@@ -354,7 +441,7 @@ function Results({ rec }) {
             ))}
           </tbody>
         </table>
-        <p className="card-note">Navy rectangles on the map are the {rec.size.modules} least-shaded spots{rec.shaded ? '' : ' (shade study still running)'}. Shade comes from the stair room, tank, parapet and neighbouring buildings.</p>
+        <p className="card-note">Navy rectangles on the map are the {rec.size.modules} least-shaded spots{rec.shaded ? '' : ' (shade study still running)'}. Shade comes from the stair room, tank, water heater, AC units, the parapet and neighbouring buildings.</p>
       </section>
 
       <section className="card grid2">
@@ -369,6 +456,12 @@ function Results({ rec }) {
         <div className="stat"><span className="stat-value">−{inr(rec.subsidy)}</span><span className="stat-label">{rec.residential ? `PM Surya Ghar subsidy${rec.special ? ' (special-category state)' : ''}` : 'no home subsidy (not a house)'}</span></div>
         <div className="stat"><span className="stat-value">{inr(rec.cost - rec.subsidy)}</span><span className="stat-label">your cost</span></div>
         <div className="stat"><span className="stat-value">{rec.payback ? fmt(rec.payback, 1) : '—'}<small> yr</small></span><span className="stat-label">payback ({inr(rec.savings)}/yr saved)</span></div>
+      </section>
+
+      <section className="card">
+        <h3>Site checks</h3>
+        <ul className="notes plain">{siteChecks(sv, params).map((t) => <li key={t}><Icon name="check" size={15} />{t}</li>)}</ul>
+        {sv.notes && <p className="card-note">Notes: {sv.notes}</p>}
       </section>
 
       <section className="card">
@@ -424,12 +517,28 @@ export default function Survey() {
     // installed price typical for DCR systems in India (≈ ₹60/W, Oct 2026 market notes).
     const first = p.site !== 'terrace' ? { ...SITE_SIZES.terrace, ...(p.cur === '₹' ? { cost: 60 } : {}) } : {}
     patch({ ...first, ...next })
-  }, [sv.ring, sv.mumty, sv.tank, sv.front, sv.buildings, sv.levels, sv.address, patch]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sv.ring, sv.mumty, sv.tank, sv.heater, sv.ac, sv.parapet, sv.roofType, sv.inverterAt, sv.meterDist, sv.front, sv.buildings, sv.levels, sv.address, patch]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Street side from the map: the nearest road to the outline, unless it was set by hand.
+  useEffect(() => {
+    if (!sv.ring || useSolar.getState().survey.frontFrom?.manual) return
+    const ctrl = new AbortController()
+    const [lon, lat] = centroid(openRing(sv.ring))
+    const t = setTimeout(() => {
+      fetchRoads(lat, lon, 60, ctrl.signal)
+        .then((roads) => {
+          const r = streetSide(sv.ring, roads)
+          if (r && !useSolar.getState().survey.frontFrom?.manual) patchSurvey({ front: r.side, frontFrom: r })
+        })
+        .catch(() => {}) // the manual picker stays available
+    }, 300)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [sv.ring, patchSurvey])
 
   const rec = useMemo(() => {
     if (!sv.ring || params.site !== 'terrace') return null
     const shade = shading.status === 'ready' && shading.key === shadingKey(params, install) ? shading.perModule : null
-    const watt = PANELS[params.panel].watt
+    const watt = moduleOf(params).watt
     const units = sv.units || 0
     const roofKw = layout.kwp
     const size = sizeSystem({ unitsMonth: units, specific: y.specific, roofKw, sanctionedKw: sv.sanctioned, watt })
@@ -449,7 +558,7 @@ export default function Survey() {
     return {
       size, zones, keys, yearly, cost, subsidy: sub, special, savings, roofKw, roofM2, units,
       payback: savings ? (cost - sub) / savings : 0, shaded: !!shade,
-      advice: placementAdvice(zones, sv.mumty, sv.tank),
+      advice: placementAdvice(zones, sv.mumty, sv.tank, sv.heater),
       residential, poi: sv.poi,
     }
   }, [sv, params, layout, y, shading, install])
@@ -462,12 +571,12 @@ export default function Survey() {
       address: sv.address, state: sv.state, units: rec.units, kw: rec.size.kw, modules: rec.size.modules,
       roofM2: rec.roofM2, roofKw: rec.roofKw, yearly: rec.yearly, cost: rec.cost, subsidy: rec.subsidy,
       payback: rec.payback, advice: rec.advice, zones: rec.zones.map(({ name, count, shade }) => ({ name, count, shade })),
-      cover: rec.size.cover, limit: rec.size.limit,
+      cover: rec.size.cover, limit: rec.size.limit, checks: siteChecks(sv, params), notes: sv.notes || '',
       campus: campusRows.length > 1 ? campusRows.map(({ name, floors, m2, kwp, kwh, count }) => ({ name, floors, m2, kwp, kwh, count })) : null,
     }
     const prev = useSolar.getState().survey.summary
     if (JSON.stringify(prev) !== JSON.stringify(summary)) patchSurvey({ summary })
-  }, [rec, sv.address, sv.state, patchSurvey, campusRows])
+  }, [rec, sv, params, patchSurvey, campusRows])
 
   return (
     <>
@@ -478,7 +587,7 @@ export default function Survey() {
         {sv.tool !== 'pick' && (
           <div className="install-hint survey-hint">
             {sv.tool === 'draw' ? `Drawing roof outline — ${sv.draft.length} corner${sv.draft.length === 1 ? '' : 's'}; click the first corner to close`
-              : sv.tool === 'mumty' ? 'Click where the stair room (mumty) stands on the roof' : 'Click where the water tank stands'}
+              : { mumty: 'Click where the stair room (mumty) stands on the roof', tank: 'Click where the water tank stands', heater: 'Click where the solar water heater stands', ac: `Click each AC outdoor unit (${sv.ac?.length ?? 0} placed); switch the tool off when done` }[sv.tool]}
           </div>
         )}
       </main>

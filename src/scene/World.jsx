@@ -58,14 +58,14 @@ function skyColor(altDeg, out) {
 
 /** Sunlight, sky colour and the sun disc, driven by latitude, day and solar time. */
 export function Sun() {
-  const { lat, day, hour } = useSolar((s) => s.params)
+  const { lat, lon, tz, day, hour } = useSolar((s) => s.params)
   const theme = useSolar((s) => s.theme)
   const layout = useLayout()
   const light = useRef()
   const hemi = useRef()
   const { scene } = useThree()
   const R = siteRadius(layout)
-  const pos = sunPosition(lat, day, hour)
+  const pos = sunPosition({ lat, lon, tz }, day, hour)
   const v = sunVector(pos)
   const altDeg = pos.alt / RAD
   const up = Math.max(0, Math.min(1, (altDeg + 2) / 12)) // fades light in over sunrise
@@ -133,20 +133,21 @@ export function Sun() {
 
 /** Today's arc of the sun across the sky, with hour ticks. */
 export function SunPath() {
-  const { lat, day } = useSolar((s) => s.params)
+  const { lat, lon, tz, day } = useSolar((s) => s.params)
   const layout = useLayout()
   const R = skyRadius(siteRadius(layout))
-  const points = useMemo(() => sunPath(lat, day).map((p) => p.map((c) => c * R)), [lat, day, R])
+  const site = useMemo(() => ({ lat, lon, tz }), [lat, lon, tz])
+  const points = useMemo(() => sunPath(site, day).map((p) => p.map((c) => c * R)), [site, day, R])
   const ticks = useMemo(() => {
-    const span = dayLength(lat, day)
+    const span = dayLength(site, day)
     if (!span) return []
     const out = []
     for (let h = Math.ceil(span[0]); h <= span[1]; h++) {
-      const p = sunPosition(lat, day, h)
+      const p = sunPosition(site, day, h)
       if (p.alt > 0) out.push({ h, v: sunVector(p).map((c) => c * R) })
     }
     return out
-  }, [lat, day, R])
+  }, [site, day, R])
   if (points.length < 2) return null
   return (
     <group>
@@ -280,9 +281,9 @@ export function DayClock() {
   useFrame((_, dt) => {
     const st = useSolar.getState()
     if (!st.playing) return
-    const { lat, day, hour } = st.params
-    const span = dayLength(lat, day) ?? [6, 18]
-    const next = hour + Math.min(dt, 0.1) * 1.2 // 1.2 solar hours per second
+    const { day, hour } = st.params
+    const span = dayLength(st.params, day) ?? [6, 18]
+    const next = hour + Math.min(dt, 0.1) * 1.2 // 1.2 clock hours per second
     if (next >= span[1]) {
       st.set('hour', span[1])
       st.togglePlay()

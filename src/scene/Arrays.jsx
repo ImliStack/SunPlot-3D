@@ -218,15 +218,24 @@ export function Modules({ candidates, params }) {
     st().applyKeys(keysOf(targetsFor(candidates, byArray, e.instanceId, install.tool)), value)
   }
 
+  // Right-click: hand the module under the pointer to the stage menu (ui/StageMenu.jsx), which
+  // opens from the DOM contextmenu event that bubbles up after this handler.
+  const onContext = (e) => {
+    if (e.instanceId == null) return
+    e.stopPropagation()
+    const pnl = candidates.panels[e.instanceId]
+    useSolar.setState({ ctxHit: { i: e.instanceId, key: pnl.key, arr: pnl.arr, installed: installed(e.instanceId), at: performance.now() } })
+  }
+
   if (!count) return null
   return (
     <group key={count}>
       {/* Hidden instances are zero-scaled, so bounds change constantly: skip culling. */}
       <instancedMesh ref={main} args={[geometry, materials, count]} material={shadeOn ? heatMats : materials} castShadow receiveShadow frustumCulled={false}
-        onPointerMove={onMove} onPointerOut={onOut} onPointerDown={onDown} onClick={onClick} />
+        onPointerMove={onMove} onPointerOut={onOut} onPointerDown={onDown} onClick={onClick} onContextMenu={onContext} />
       {manual && (
         <instancedMesh ref={ghost} args={[geometry, ghostMat, count]} renderOrder={2} frustumCulled={false}
-          onPointerMove={onMove} onPointerOut={onOut} onPointerDown={onDown} onClick={onClick} />
+          onPointerMove={onMove} onPointerOut={onOut} onPointerDown={onDown} onClick={onClick} onContextMenu={onContext} />
       )}
     </group>
   )

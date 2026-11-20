@@ -27,7 +27,7 @@ export function useShadingStudy() {
         if (e.data.result) setShading({ status: 'ready', key, ...e.data.result })
         else useSolar.setState((s) => ({ shading: { ...s.shading, progress: e.data.progress } }))
       }
-      worker.postMessage({ id, scene, lat: params.lat })
+      worker.postMessage({ id, scene, site: { lat: params.lat, lon: params.lon } })
     }, 350)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps

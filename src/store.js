@@ -16,7 +16,11 @@ function storedPanels() {
     const v = JSON.parse(localStorage.getItem('solar-panels'))
     if (v && typeof v.left === 'boolean') return v
   } catch {}
-  return { left: true, right: true }
+  // First visit on a narrow window: start with the inputs folded so the 3D view has room.
+  return { left: typeof innerWidth === 'undefined' || innerWidth >= 1100, right: true }
+}
+function storedCollapsed() {
+  try { return JSON.parse(localStorage.getItem('solar-sections')) ?? {} } catch { return {} }
 }
 
 /** A customer link (?view=client&co=…): read-only page with the installer's name and contact. */
@@ -39,7 +43,7 @@ const EMPTY_SURVEY = {
   locError: '',
   address: '',
   state: '', // Indian state, for subsidy rates and the vendor list
-  tool: 'pick', // pick | draw | mumty | tank
+  tool: 'pick', // pick | draw | mumty | tank | heater | ac
   buildings: [], // OSM buildings around the address
   status: 'idle', // idle | loading | ready | error
   error: '',
@@ -57,6 +61,15 @@ const EMPTY_SURVEY = {
   mumty: null,
   tank: null,
   front: 'S', // street side
+  frontFrom: null, // { road, side } when the street side came from map roads; null = set by hand
+  parapet: 0.9, // m parapet wall height around the terrace
+  heater: null, // [lon, lat] solar water heater
+  ac: [], // [[lon, lat]…] AC outdoor units
+  roofType: 'rcc', // rcc | rcc-repair (leaks / cracks) | sheet (metal sheet over the terrace)
+  inverterAt: 'ground', // ground (near the meter) | terrace
+  meterDist: 15, // m of cable route from the roof edge down to the meter / DB
+  checks: {}, // site-photo checklist: { key: true }
+  notes: '', // surveyor notes
   units: 300, // kWh per month
   bill: 0, // ₹ per month (alternative to units)
   sanctioned: 0, // kW, 0 = unknown
@@ -85,11 +98,13 @@ export const useSolar = create((set, get) => ({
   camera: { type: 'home', n: 0 },
   // Overlays: array tags, setback / keep-out outlines, overall dimensions.
   layers: { labels: true, zones: true, dims: false, shade: false },
+  ctxHit: null, // module under the last right-click, read by the stage menu
   // High quality: ambient occlusion + antialiasing passes. Off by default on phones.
   hq: typeof matchMedia === 'undefined' || !matchMedia('(pointer: coarse)').matches,
   heading: 0, // compass bearing the camera looks towards, for the HUD compass
   // Measured climate (NASA POWER) for the current location: { status, key, data, error }
   climate: { status: 'idle' },
+  hourly: { status: 'idle' }, // hourly weather for the simulation: { status, key, data, error }
   // Ray-cast shading for the current design: { status, key, perArray[array][month], perModule, progress }
   shading: { status: 'idle' },
   // Click-to-install: installed module keys, their drop-in start times, the active tool and
@@ -106,6 +121,8 @@ export const useSolar = create((set, get) => ({
   tab: 'system',
   // Side panels: collapsed state, remembered per browser.
   panels: storedPanels(),
+  collapsed: storedCollapsed(), // input sections folded by hand: { id: true }
+  sectionFocus: null, // a workflow step showing only its own input section
   snap: 0,
 
   set: (key, value) => set((s) => ({ params: { ...s.params, [key]: value } })),
@@ -131,6 +148,7 @@ export const useSolar = create((set, get) => ({
   toggleHq: () => set((s) => ({ hq: !s.hq })),
   setHeading: (heading) => set({ heading }),
   setClimate: (climate) => set({ climate }),
+  setHourly: (hourly) => set({ hourly }),
   setShading: (shading) => set({ shading }),
   setInstallMode: (mode) => set({ install: { ...EMPTY_INSTALL, tool: get().install.tool, mode } }),
   setTool: (tool) => set((s) => ({ install: { ...s.install, tool } })),
@@ -195,6 +213,12 @@ export const useSolar = create((set, get) => ({
 
   setUseMeasured: (useMeasured) => set({ useMeasured }),
   setTab: (tab) => set({ tab }),
+  toggleSection: (id, open) => set((s) => {
+    const collapsed = { ...s.collapsed, [id]: !open }
+    try { localStorage.setItem('solar-sections', JSON.stringify(collapsed)) } catch {}
+    return { collapsed, sectionFocus: null }
+  }),
+  focusSection: (id) => set({ sectionFocus: id }),
   togglePanel: (side) => set((s) => {
     const panels = side === 'focus'
       ? (s.panels.left || s.panels.right ? { left: false, right: false } : { left: true, right: true })
@@ -202,8 +226,8 @@ export const useSolar = create((set, get) => ({
     try { localStorage.setItem('solar-panels', JSON.stringify(panels)) } catch {}
     return { panels }
   }),
-  goTo: ({ lat, lon, name, climate }) => set((s) => ({
-    params: { ...s.params, lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, place: '', placeName: name,
+  goTo: ({ lat, lon, name, climate, tz }) => set((s) => ({
+    params: { ...s.params, lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100, place: '', placeName: name, tz: tz ?? '',
       groundTilt: bestTilt(lat), azimuth: equatorAzimuth(lat), ...(climate ? { climate } : {}) },
   })),
   cameraCommand: (type) => set((s) => ({ camera: { type, n: s.camera.n + 1 } })),
@@ -211,7 +235,7 @@ export const useSolar = create((set, get) => ({
     const { playing, params } = get()
     if (!playing) {
       // Start from sunrise when the day is already over.
-      const span = dayLength(params.lat, params.day)
+      const span = dayLength(params, params.day)
       if (span && params.hour >= span[1] - 0.1) set((s) => ({ params: { ...s.params, hour: span[0] } }))
     }
     set({ playing: !playing })

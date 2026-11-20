@@ -3,6 +3,9 @@ import { useSolar } from '../store.js'
 import { useLayout, useYield, useEngineering } from '../hooks.js'
 import { loadProjects, saveProjects, snapshot, newProject } from '../projects.js'
 import Icon from './Icon.jsx'
+import { DEMOS } from '../data/demos.js'
+import { DEFAULTS } from '../presets.js'
+import { SITE_SIZES } from '../store.js'
 
 const fmt = (n, d = 0) => (Number.isFinite(n) ? n.toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—')
 const when = (t) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
@@ -98,6 +101,23 @@ export default function Projects() {
                   )
                 })}
                 {!list.length && <li className="muted">No projects yet.</li>}
+              </ul>
+              <strong className="demo-head">Demo projects <small>illustrative assumptions</small></strong>
+              <ul className="project-list">
+                {DEMOS.map((d) => (
+                  <li key={d.id}>
+                    <button title={d.assumptions} onClick={() => {
+                      const st = useSolar.getState()
+                      st.setInstallMode('auto')
+                      st.patch({ ...DEFAULTS, ...(SITE_SIZES[d.params.site] ?? {}), ...d.params })
+                      st.cameraCommand('home')
+                      setMsg(`Demo loaded: ${d.name}. ${d.assumptions}`)
+                    }}>
+                      <span><b>{d.name}</b><small>{d.assumptions}</small></span>
+                      <em>Load</em>
+                    </button>
+                  </li>
+                ))}
               </ul>
             </>
           ) : (

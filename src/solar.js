@@ -7,22 +7,16 @@ const RAD = Math.PI / 180
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
-/** Solar declination (Cooper), radians. */
-const declination = (day) => 23.44 * RAD * Math.sin((2 * Math.PI * (284 + day)) / 365)
+import { sunAt, sunClock } from './engine/clock.js'
 
-/** Sun altitude and azimuth (radians) for a latitude, day of year and solar time in hours. */
-export function sunPosition(latDeg, day, hour) {
-  const phi = latDeg * RAD
-  const dec = declination(day)
-  const H = (hour - 12) * 15 * RAD
-  const sinAlt = Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)
-  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)))
-  // Azimuth from north, clockwise, using atan2 so it is stable at the poles and noon.
-  const az = Math.atan2(
-    Math.sin(H),
-    Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi),
-  ) + Math.PI
-  return { alt, az }
+/**
+ * Sun for a site ({ lat, lon, tz }) on day-of-year `day` at local clock `hour`: NREL SPA via
+ * engine/clock.js, so the 3D light, shadows, sun path and the simulation share one sun.
+ * Returns apparent altitude `alt` and azimuth `az` in radians (azimuth clockwise from north).
+ */
+export function sunPosition(site, day, hour) {
+  const s = sunAt(site, day, hour)
+  return { alt: s.alt, az: s.az }
 }
 
 /** Unit vector pointing at the sun in world axes. */
@@ -30,16 +24,15 @@ export function sunVector({ alt, az }) {
   return [Math.sin(az) * Math.cos(alt), Math.sin(alt), -Math.cos(az) * Math.cos(alt)]
 }
 
-/** Sunrise and sunset in solar hours (polar day → [0, 24], polar night → null). */
-export function dayLength(latDeg, day) {
-  const x = -Math.tan(latDeg * RAD) * Math.tan(declination(day))
-  if (x <= -1) return [0, 24]
-  if (x >= 1) return null
-  const h = Math.acos(x) / RAD / 15
-  return [12 - h, 12 + h]
+/** Sunrise and sunset as local clock hours (polar day → [0, 24], polar night → null). */
+export function dayLength(site, day) {
+  const c = sunClock(site, day)
+  if (c.polar === 'night') return null
+  if (c.polar === 'day') return [0, 24]
+  return [c.rise, c.set]
 }
 
-/** Lowest noon sun of the year (winter solstice) — the angle rows are spaced for. */
+/** Siting rule of thumb kept for row spacing: noon sun at the winter solstice (geometric, ±0.1°). */
 export const winterNoonAltitude = (latDeg) => Math.max(8, 90 - Math.abs(latDeg) - 23.44)
 
 /**
@@ -53,6 +46,20 @@ export function clearSky(day, sinAlt) {
   const C = 0.095 + 0.04 * Math.sin(s * (day - 100))
   const dni = A * Math.exp(-B / sinAlt)
   return { dni, dhi: C * dni }
+}
+
+// ── Legacy monthly model ──────────────────────────────────────────────────────────────────
+// Used only as a labelled fallback while hourly weather loads (or if every weather service is
+// down). It works in local solar time with Cooper's declination, which is adequate for monthly
+// clear-sky shapes but is NOT used for anything displayed as the simulation result.
+const declination = (day) => 23.44 * RAD * Math.sin((2 * Math.PI * (284 + day)) / 365)
+function solarTimeSun(latDeg, day, hour) {
+  const phi = latDeg * RAD
+  const dec = declination(day)
+  const H = (hour - 12) * 15 * RAD
+  const alt = Math.asin(Math.max(-1, Math.min(1, Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H))))
+  const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)) + Math.PI
+  return { alt, az }
 }
 
 const STEP = 0.25 // hours
@@ -78,7 +85,7 @@ function planeIrradiation(latDeg, tiltDeg, azDeg) {
     for (let d = 0; d < MONTH_DAYS[m]; d++, day++) {
       const g0 = 1367 * (1 + 0.033 * Math.cos((2 * Math.PI * day) / 365))
       for (let t = STEP / 2; t < 24; t += STEP) {
-        const { alt, az } = sunPosition(latDeg, day, t)
+        const { alt, az } = solarTimeSun(latDeg, day, t)
         if (alt <= 0.02) continue
         const sinAlt = Math.sin(alt)
         const { dni, dhi } = clearSky(day, sinAlt)
@@ -133,13 +140,13 @@ export function estimateYield(arrays, latDeg, climateK, shade) {
 }
 
 /** Points along today's sun path, for the arc drawn in the sky. */
-export function sunPath(latDeg, day, steps = 48) {
-  const span = dayLength(latDeg, day)
+export function sunPath(site, day, steps = 48) {
+  const span = dayLength(site, day)
   if (!span) return []
   const [rise, set] = span
   const pts = []
   for (let i = 0; i <= steps; i++) {
-    const p = sunPosition(latDeg, day, rise + ((set - rise) * i) / steps)
+    const p = sunPosition(site, day, rise + ((set - rise) * i) / steps)
     if (p.alt >= -0.01) pts.push(sunVector(p))
   }
   return pts
@@ -174,7 +181,7 @@ const TEMP_COEFF = -0.0035 // per °C, typical TOPCon / PERC Pmax coefficient
  * monthly loss is the average over a cleaning cycle: rate × interval ÷ 2, capped at 25 %.
  * Dust rate follows dryness: 0.30 %/day under 300 mm/yr of rain, 0.20 % under 800, else 0.12 %.
  */
-function soilingByMonth(rainYear, rainMm, cleanDays) {
+export function soilingByMonth(rainYear, rainMm, cleanDays) {
   const rate = rainYear < 300 ? 0.003 : rainYear < 800 ? 0.002 : 0.0012
   const out = new Array(12).fill(0)
   let streak = 0
@@ -197,7 +204,7 @@ function soilingByMonth(rainYear, rainMm, cleanDays) {
  * until it slides off or melts — about 0.5 + 3·(1 − tilt/60) days, halved when daily highs
  * are above 5 °C. Covered days still give ~10 % (light through thin snow, edges clearing).
  */
-function snowLoss(snowMmMonth, tiltDeg, tmax, days) {
+export function snowLoss(snowMmMonth, tiltDeg, tmax, days) {
   if (!snowMmMonth) return 0
   const events = snowMmMonth / 8
   let stay = 0.5 + 3 * Math.max(0, 1 - tiltDeg / 60)
@@ -291,4 +298,28 @@ export function estimateYieldMeasured(arrays, latDeg, d, { shade, cleanDays = 30
     poaKwh: w.poa,
     soilMonths, snowMonths,
   }
+}
+
+/**
+ * Monthly soiling and snow-cover fractions averaged over the ten NASA POWER years, for the hourly
+ * engine (same Kimber-style soiling and snow-event rules as above). `tilt` of the main array.
+ */
+export function soilingSnowMonthly(d, tilt, cleanDays = 30) {
+  const n = d.years.length
+  const soil = new Array(12).fill(0)
+  const snow = new Array(12).fill(0)
+  const avg = (grid, m) => {
+    const v = (grid ?? []).map((y) => y[m]).filter((x) => x != null)
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0
+  }
+  for (let i = 0; i < n; i++) {
+    const rainMm = MONTH_DAYS.map((days, m) => (d.rain?.[i]?.[m] ?? avg(d.rain, m)) * days)
+    const s = soilingByMonth(rainMm.reduce((a, b) => a + b, 0), rainMm, cleanDays)
+    for (let m = 0; m < 12; m++) {
+      soil[m] += s.months[m] / n
+      const snowMm = (d.snow?.[i]?.[m] ?? avg(d.snow, m)) * MONTH_DAYS[m]
+      snow[m] += snowLoss(snowMm, tilt, d.tmax?.[i]?.[m] ?? avg(d.tmax, m), MONTH_DAYS[m]) / n
+    }
+  }
+  return { soil, snow }
 }
